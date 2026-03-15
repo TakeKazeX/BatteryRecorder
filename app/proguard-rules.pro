@@ -23,3 +23,25 @@
 -dontwarn androidx.window.extensions.core.util.function.Consumer
 -dontwarn androidx.window.extensions.core.util.function.Function
 -dontwarn androidx.window.extensions.core.util.function.Predicate
+
+# Compose rememberSaveable 会通过 ParcelableSnapshotMutable*State 恢复状态。
+# Release 混淆后若 CREATOR 被裁剪，进程在后台被杀后恢复会抛 BadParcelableException。
+-keepclassmembers class androidx.compose.runtime.ParcelableSnapshotMutableState {
+    public static final android.os.Parcelable$Creator CREATOR;
+}
+
+-keepclassmembers class androidx.compose.runtime.ParcelableSnapshotMutableIntState {
+    public static final android.os.Parcelable$Creator CREATOR;
+}
+
+-keepclassmembers class androidx.compose.runtime.ParcelableSnapshotMutableLongState {
+    public static final android.os.Parcelable$Creator CREATOR;
+}
+
+-keepclassmembers class androidx.compose.runtime.ParcelableSnapshotMutableFloatState {
+    public static final android.os.Parcelable$Creator CREATOR;
+}
+
+-keepclassmembers class androidx.compose.runtime.ParcelableSnapshotMutableDoubleState {
+    public static final android.os.Parcelable$Creator CREATOR;
+}
