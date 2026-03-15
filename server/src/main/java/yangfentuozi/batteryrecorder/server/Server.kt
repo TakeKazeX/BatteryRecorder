@@ -3,8 +3,6 @@ package yangfentuozi.batteryrecorder.server
 import android.content.pm.ApplicationInfo
 import android.content.pm.PackageManager
 import android.os.Bundle
-import android.os.Handler
-import android.os.HandlerThread
 import android.os.Looper
 import android.os.ParcelFileDescriptor
 import android.os.RemoteException
@@ -25,6 +23,7 @@ import yangfentuozi.batteryrecorder.shared.data.BatteryStatus.Charging
 import yangfentuozi.batteryrecorder.shared.data.BatteryStatus.Discharging
 import yangfentuozi.batteryrecorder.shared.data.RecordsFile
 import yangfentuozi.batteryrecorder.shared.sync.PfdFileSender
+import yangfentuozi.batteryrecorder.shared.util.Handlers
 import yangfentuozi.batteryrecorder.shared.util.LoggerX
 import yangfentuozi.hiddenapi.compat.ActivityManagerCompat
 import yangfentuozi.hiddenapi.compat.PackageManagerCompat
@@ -36,110 +35,17 @@ import java.util.Scanner
 import kotlin.system.exitProcess
 
 class Server internal constructor() : IService.Stub() {
-    private val mMainHandler: Handler
-    private lateinit var monitor: Monitor
-    private lateinit var writer: PowerRecordWriter
-    private val writerThread = HandlerThread("WriterThread")
+    private var monitor: Monitor
+    private var writer: PowerRecordWriter
 
-    private lateinit var appDataDir: File
-    private lateinit var appConfigFile: File
-    private lateinit var appPowerDataDir: File
-    private lateinit var shellDataDir: File
-    private lateinit var shellPowerDataDir: File
-
-    private fun startService() {
-        fun getAppInfo(packageName: String): ApplicationInfo {
-            try {
-                return PackageManagerCompat.getApplicationInfo(packageName, 0L, 0)
-            } catch (e: RemoteException) {
-                throw RuntimeException(
-                    "Failed to get application info for package: $packageName",
-                    e
-                )
-            } catch (e: PackageManager.NameNotFoundException) {
-                throw RuntimeException("$packageName is not installed", e)
-            }
-        }
-
-        var appInfo = getAppInfo(Constants.APP_PACKAGE_NAME)
-        appUid = appInfo.uid
-        appDataDir = File(appInfo.dataDir)
-        appConfigFile = File("${appInfo.dataDir}/shared_prefs/${ConfigConstants.PREFS_NAME}.xml")
-        appPowerDataDir = File("${appInfo.dataDir}/${Constants.APP_POWER_DATA_PATH}")
-
-        val sampler = if (SysfsSampler.init(appInfo)) SysfsSampler else DumpsysSampler()
-
-        appInfo = getAppInfo(Constants.SHELL_PACKAGE_NAME)
-        shellDataDir = File(appInfo.dataDir)
-        shellPowerDataDir = File("${appInfo.dataDir}/${Constants.SHELL_POWER_DATA_PATH}")
-
-        // 指定日志文件夹
-        LoggerX.logDirPath = appInfo.dataDir + Constants.SHELL_LOG_DIR_PATH
-
-        if (Os.getuid() == 0) {
-            shellPowerDataDir.let { shellPowerDataDir ->
-                appPowerDataDir.let { appPowerDataDir ->
-                    if (shellPowerDataDir.exists() && shellPowerDataDir.isDirectory) {
-                        shellPowerDataDir.copyRecursively(
-                            target = appPowerDataDir,
-                            overwrite = true
-                        )
-                        shellPowerDataDir.deleteRecursively()
-                        changeOwnerRecursively(appPowerDataDir)
-                    }
-                }
-            }
-        }
-
-        try {
-            writerThread.start()
-            writer = if (Os.getuid() == 0)
-                PowerRecordWriter(
-                    writerThread.looper,
-                    appPowerDataDir
-                ) { changeOwnerRecursively(it) }
-            else
-                PowerRecordWriter(
-                    writerThread.looper,
-                    shellPowerDataDir
-                ) {}
-        } catch (e: IOException) {
-            throw RuntimeException(e)
-        }
-
-        monitor = Monitor(
-            writer = writer,
-            sendBinder = this::sendBinder,
-            sampler
-        )
-
-        if (Os.getuid() == 0) {
-            ConfigUtil.getConfigByReading(appConfigFile)
-        } else {
-            ConfigUtil.getConfigByContentProvider()
-        }?.let {
-            updateConfig(it)
-        }
-
-        monitor.start()
-
-        Thread({
-            try {
-                val scanner = Scanner(System.`in`)
-                var line: String
-                while ((scanner.nextLine().also { line = it }) != null) {
-                    if (line.trim { it <= ' ' } == "exit") {
-                        stopService()
-                    }
-                }
-                scanner.close()
-            } catch (_: Throwable) {
-            }
-        }, "InputHandler").start()
-    }
+    private var appDataDir: File
+    private var appConfigFile: File
+    private var appPowerDataDir: File
+    private var shellDataDir: File
+    private var shellPowerDataDir: File
 
     override fun stopService() {
-        mMainHandler.postDelayed({ exitProcess(0) }, 100)
+        Handlers.main.postDelayed({ exitProcess(0) }, 100)
     }
 
     override fun getVersion(): Int {
@@ -165,28 +71,34 @@ class Server internal constructor() : IService.Stub() {
     }
 
     override fun updateConfig(config: Config) {
-        LoggerX.logLevel = config.logLevel
-        monitor.recordIntervalMs = config.recordIntervalMs
-        unlockOPlusSampleTimeLimit(config.recordIntervalMs.coerceAtLeast(200))
-        monitor.screenOffRecord = config.screenOffRecordEnabled
-        writer.flushIntervalMs = config.writeLatencyMs
-        writer.batchSize = config.batchSize
-        writer.maxSegmentDurationMs = config.segmentDurationMin * 60 * 1000L
-        monitor.notifyLock()
+        Handlers.common.post {
+            LoggerX.logLevel = config.logLevel
+            monitor.recordIntervalMs = config.recordIntervalMs
+            unlockOPlusSampleTimeLimit(config.recordIntervalMs.coerceAtLeast(200))
+            monitor.screenOffRecord = config.screenOffRecordEnabled
+            writer.flushIntervalMs = config.writeLatencyMs
+            writer.batchSize = config.batchSize
+            writer.maxSegmentDurationMs = config.segmentDurationMin * 60 * 1000L
+            monitor.notifyLock()
+        }
     }
 
     private fun unlockOPlusSampleTimeLimit(intervalMs: Long) {
         try {
             val forceActive = "/proc/oplus-votable/GAUGE_UPDATE/force_active"
             val forceVal = "/proc/oplus-votable/GAUGE_UPDATE/force_val"
-            if (Os.access(forceActive, OsConstants.R_OK)) {
+            if (Os.access(forceActive, OsConstants.F_OK)) {
+                LoggerX.i<Server>("unlockOPlusSampleTimeLimit: 欧加功率采样频率解限文件存在")
+                Os.chmod(forceActive, "666".toInt(8))
+                Os.chmod(forceVal, "666".toInt(8))
                 val forceActiveFile = File(forceActive)
                 val forceValFile = File(forceVal)
-                if (forceValFile.readText().trim().toLong() > intervalMs) {
-                    Os.chmod(forceActive, "666".toInt(8))
-                    Os.chmod(forceVal, "666".toInt(8))
-                    forceActiveFile.writeText("1\n")
-                    forceValFile.writeText("$intervalMs\n")
+                forceValFile.readText().trim().toLong().let {
+                    if (it > intervalMs || it == 0L) {
+                        LoggerX.i<Server>("unlockOPlusSampleTimeLimit: 解锁欧加功率采样频率: ${intervalMs}Ms")
+                        forceActiveFile.writeText("1\n")
+                        forceValFile.writeText("$intervalMs\n")
+                    }
                 }
             }
         } catch (e: Exception) {
@@ -242,18 +154,14 @@ class Server internal constructor() : IService.Stub() {
     }
 
     private fun stopServiceImmediately() {
-        if (::monitor.isInitialized) {
-            monitor.stop()
-        }
+        monitor.stop()
 
-        if (::writer.isInitialized) {
-            try {
-                writer.flushBuffer()
-            } catch (e: IOException) {
-                Log.e(this::class.java.simpleName, Log.getStackTraceString(e))
-            }
-            writer.close()
+        try {
+            writer.flushBuffer()
+        } catch (e: IOException) {
+            Log.e(this::class.java.simpleName, Log.getStackTraceString(e))
         }
+        writer.close()
 
     }
 
@@ -280,22 +188,104 @@ class Server internal constructor() : IService.Stub() {
             Looper.prepareMainLooper()
         }
 
-        mMainHandler = Handler(Looper.getMainLooper())
+        Handlers.initMainThread()
         Runtime.getRuntime().addShutdownHook(Thread { this.stopServiceImmediately() })
         ServiceManagerCompat.waitService("activity_task")
         ServiceManagerCompat.waitService("display")
         ServiceManagerCompat.waitService("power")
 
-        startService()
+        fun getAppInfo(packageName: String): ApplicationInfo {
+            try {
+                return PackageManagerCompat.getApplicationInfo(packageName, 0L, 0)
+            } catch (e: RemoteException) {
+                throw RuntimeException(
+                    "Failed to get application info for package: $packageName",
+                    e
+                )
+            } catch (e: PackageManager.NameNotFoundException) {
+                throw RuntimeException("$packageName is not installed", e)
+            }
+        }
+
+        val appInfo = getAppInfo(Constants.APP_PACKAGE_NAME)
+        appDataDir = File(appInfo.dataDir)
+        appConfigFile = File("${appInfo.dataDir}/shared_prefs/${ConfigConstants.PREFS_NAME}.xml")
+        appPowerDataDir = File("${appInfo.dataDir}/${Constants.APP_POWER_DATA_PATH}")
+
+        val sampler = if (SysfsSampler.init(appInfo)) SysfsSampler else DumpsysSampler()
+
+        shellDataDir = File(Constants.SHELL_DATA_DIR_PATH)
+        shellPowerDataDir =
+            File("${Constants.SHELL_DATA_DIR_PATH}/${Constants.SHELL_POWER_DATA_PATH}")
+
+        if (Os.getuid() == 0) {
+            shellPowerDataDir.let { shellPowerDataDir ->
+                appPowerDataDir.let { appPowerDataDir ->
+                    if (shellPowerDataDir.exists() && shellPowerDataDir.isDirectory) {
+                        shellPowerDataDir.copyRecursively(
+                            target = appPowerDataDir,
+                            overwrite = true
+                        )
+                        shellPowerDataDir.deleteRecursively()
+                        changeOwnerRecursively(appPowerDataDir, appInfo.uid)
+                    }
+                }
+            }
+
+            LoggerX.fixFileOwner = {
+                changeOwnerRecursively(it, 2000)
+            }
+        }
+
+        // 指定日志文件夹
+        LoggerX.logDirPath = "${Constants.SHELL_DATA_DIR_PATH}/${Constants.SHELL_LOG_DIR_PATH}"
+
+        try {
+            writer = if (Os.getuid() == 0)
+                PowerRecordWriter(appPowerDataDir) { changeOwnerRecursively(it, appInfo.uid) }
+            else
+                PowerRecordWriter(shellPowerDataDir) {}
+        } catch (e: IOException) {
+            throw RuntimeException(e)
+        }
+
+        monitor = Monitor(
+            writer = writer,
+            sendBinder = this::sendBinder,
+            sampler
+        )
+
+        if (Os.getuid() == 0) {
+            ConfigUtil.getConfigByReading(appConfigFile)
+        } else {
+            ConfigUtil.getConfigByContentProvider()
+        }?.let {
+            updateConfig(it)
+        }
+
+        monitor.start()
+
+        Thread({
+            try {
+                val scanner = Scanner(System.`in`)
+                var line: String
+                while ((scanner.nextLine().also { line = it }) != null) {
+                    if (line.trim { it <= ' ' } == "exit") {
+                        stopService()
+                    }
+                }
+                scanner.close()
+            } catch (_: Throwable) {
+            }
+        }, "InputHandler").start()
         Looper.loop()
     }
 
     companion object {
-        var appUid: Int = 0
 
-        fun changeOwner(file: File) {
+        fun changeOwner(file: File, uid: Int) {
             try {
-                Os.chown(file.absolutePath, appUid, appUid)
+                Os.chown(file.absolutePath, uid, uid)
             } catch (e: ErrnoException) {
                 LoggerX.w<Server>(
                     "changeOwner: 设置文件(夹): ${file.absolutePath} 所有者和组失败",
@@ -304,13 +294,13 @@ class Server internal constructor() : IService.Stub() {
             }
         }
 
-        fun changeOwnerRecursively(file: File) {
-            changeOwner(file)
+        fun changeOwnerRecursively(file: File, uid: Int) {
+            changeOwner(file, uid)
             if (file.isDirectory()) {
                 val files = file.listFiles()
                 if (files != null) {
                     for (child in files) {
-                        changeOwnerRecursively(child)
+                        changeOwnerRecursively(child, uid)
                     }
                 }
             }
