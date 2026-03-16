@@ -38,6 +38,16 @@ data class HistorySummary(
 
 object HistoryRepository {
 
+    // 记录文件名由“起始时间戳.txt”组成；排序与最新文件判定都以该业务时间为准。
+    private fun recordFileTimestamp(file: File): Long =
+        file.name.substringBeforeLast('.').toLongOrNull()
+            ?: throw IllegalStateException("非法记录文件名: ${file.absolutePath}")
+
+    private fun listSortedRecordFiles(dir: File): List<File> =
+        dir.listFiles()?.filter { it.isFile }
+            ?.sortedByDescending(::recordFileTimestamp)
+            ?: emptyList()
+
     fun RecordsFile.toFile(context: Context): File? {
         val dataDir = dataDir(context, type)
         return validFile(dataDir, name)
@@ -83,16 +93,15 @@ object HistoryRepository {
         return buildHistoryRecord(file, stats)
     }
 
-    /** 仅列出文件，按修改时间降序，不加载 stats */
+    /** 仅列出文件，按记录起始时间倒序，不加载 stats */
     fun listRecordFiles(context: Context, type: BatteryStatus): List<File> {
-        return dataDir(context, type).listFiles()?.filter { it.isFile }
-            ?.sortedByDescending { it.lastModified() } ?: emptyList()
+        return listSortedRecordFiles(dataDir(context, type))
     }
 
-    /** 加载指定类型的所有记录，按修改时间降序 */
+    /** 加载指定类型的所有记录，按记录起始时间倒序 */
     fun loadRecords(context: Context, type: BatteryStatus): List<HistoryRecord> {
-        val files = dataDir(context, type).listFiles()?.filter { it.isFile }
-            ?.sortedByDescending { it.lastModified() } ?: return emptyList()
+        val files = listSortedRecordFiles(dataDir(context, type))
+        if (files.isEmpty()) return emptyList()
         val latestFile = files.firstOrNull()
 
         return files.mapNotNull { loadStats(context, it, it != latestFile) }
@@ -102,8 +111,7 @@ object HistoryRepository {
     @Throws(Exception::class)
     fun loadRecord(context: Context, file: File): HistoryRecord {
         val dataDir = file.parentFile!!
-        val latestFile = dataDir.listFiles()?.filter { it.isFile }
-            ?.maxByOrNull { it.lastModified() }
+        val latestFile = listSortedRecordFiles(dataDir).firstOrNull()
         val cacheFile = getPowerStatsCacheFile(context.cacheDir, file.name)
         val stats = RecordsStats.getCachedStats(
             cacheFile = cacheFile,
@@ -157,8 +165,7 @@ object HistoryRepository {
         avgPowerLimit: Int = 20
     ): HistorySummary? {
         val dataDir = dataDir(context, type)
-        val files = dataDir.listFiles()?.filter { it.isFile }
-            ?.sortedByDescending { it.lastModified() } ?: return null
+        val files = listSortedRecordFiles(dataDir)
 
         val recordCount = files.size
         if (recordCount == 0) return null
