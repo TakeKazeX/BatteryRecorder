@@ -2,6 +2,7 @@ package yangfentuozi.batteryrecorder.server
 
 import android.ddm.DdmHandleAppName
 import androidx.annotation.Keep
+import yangfentuozi.batteryrecorder.shared.Constants
 import yangfentuozi.batteryrecorder.shared.util.LoggerX
 import java.io.File
 import java.io.IOException
@@ -23,6 +24,9 @@ object Main {
             throw new RuntimeException(e);
         }
         */
+        // 指定日志文件夹
+        LoggerX.logDirPath = "${Constants.SHELL_DATA_DIR_PATH}/${Constants.SHELL_LOG_DIR_PATH}"
+
         Server()
     }
 

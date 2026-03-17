@@ -96,6 +96,7 @@ class Server internal constructor() : IService.Stub() {
             val len = Os.read(fd, buffer, 0, buffer.size)
             return String(buffer, 0, len)
         }
+
         fun writeFd(fd: FileDescriptor, content: String) {
             val buffer = content.toByteArray()
             var toWrite = buffer.size
@@ -106,6 +107,7 @@ class Server internal constructor() : IService.Stub() {
                 offset += len
             }
         }
+
         val forceActive = "/proc/oplus-votable/GAUGE_UPDATE/force_active"
         val forceVal = "/proc/oplus-votable/GAUGE_UPDATE/force_val"
         val perm = "666".toInt(8)
@@ -255,11 +257,6 @@ class Server internal constructor() : IService.Stub() {
         shellDataDir = File(Constants.SHELL_DATA_DIR_PATH)
         shellPowerDataDir =
             File("${Constants.SHELL_DATA_DIR_PATH}/${Constants.SHELL_POWER_DATA_PATH}")
-        if (Os.getuid() == 0) {
-            ConfigUtil.getConfigByReading(appConfigFile)
-        } else {
-            ConfigUtil.getConfigByContentProvider()
-        }?.let(::updateConfig)
 
         if (Os.getuid() == 0) {
             shellPowerDataDir.let { shellPowerDataDir ->
@@ -280,9 +277,6 @@ class Server internal constructor() : IService.Stub() {
             }
         }
 
-        // 指定日志文件夹
-        LoggerX.logDirPath = "${Constants.SHELL_DATA_DIR_PATH}/${Constants.SHELL_LOG_DIR_PATH}"
-
         try {
             writer = if (Os.getuid() == 0)
                 PowerRecordWriter(appPowerDataDir) { changeOwnerRecursively(it, appInfo.uid) }
@@ -297,6 +291,12 @@ class Server internal constructor() : IService.Stub() {
             sendBinder = this::sendBinder,
             sampler
         )
+
+        if (Os.getuid() == 0) {
+            ConfigUtil.getConfigByReading(appConfigFile)
+        } else {
+            ConfigUtil.getConfigByContentProvider()
+        }?.let(::updateConfig)
 
         monitor.start()
 
