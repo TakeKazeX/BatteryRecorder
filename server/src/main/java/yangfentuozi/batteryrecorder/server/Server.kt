@@ -71,17 +71,42 @@ class Server internal constructor() : IService.Stub() {
         monitor.unregisterRecordListener(listener)
     }
 
-    override fun updateConfig(config: Config) {
-        Handlers.common.post {
-            LoggerX.logLevel = config.logLevel
-            monitor.alwaysPollingScreenStatusEnabled = config.alwaysPollingScreenStatusEnabled
-            monitor.recordIntervalMs = config.recordIntervalMs
-            unlockOPlusSampleTimeLimit(config.recordIntervalMs.coerceAtLeast(200))
-            monitor.screenOffRecord = config.screenOffRecordEnabled
-            writer.flushIntervalMs = config.writeLatencyMs
-            writer.batchSize = config.batchSize
-            writer.maxSegmentDurationMs = config.segmentDurationMin * 60 * 1000L
+    /**
+     * 立即应用日志相关配置，确保日志目录初始化前后都使用同一组策略。
+     *
+     * @param config 当前服务端配置快照。
+     * @return 无返回值。
+     */
+    private fun applyLoggerConfig(config: Config) {
+        LoggerX.maxLinesPerFile = config.maxLinesPerFile
+        LoggerX.maxHistoryDays = config.maxHistoryDays
+        LoggerX.logLevel = config.logLevel
+    }
+
+    /**
+     * 应用监控与写盘相关配置。
+     *
+     * @param config 当前服务端配置快照。
+     * @param notifyMonitor 是否在配置变更后唤醒监控线程。
+     * @return 无返回值。
+     */
+    private fun applyRuntimeConfig(config: Config, notifyMonitor: Boolean) {
+        monitor.alwaysPollingScreenStatusEnabled = config.alwaysPollingScreenStatusEnabled
+        monitor.recordIntervalMs = config.recordIntervalMs
+        unlockOPlusSampleTimeLimit(config.recordIntervalMs.coerceAtLeast(200))
+        monitor.screenOffRecord = config.screenOffRecordEnabled
+        writer.flushIntervalMs = config.writeLatencyMs
+        writer.batchSize = config.batchSize
+        writer.maxSegmentDurationMs = config.segmentDurationMin * 60 * 1000L
+        if (notifyMonitor) {
             monitor.notifyLock()
+        }
+    }
+
+    override fun updateConfig(config: Config) {
+        applyLoggerConfig(config)
+        Handlers.common.post {
+            applyRuntimeConfig(config, notifyMonitor = true)
         }
     }
 
@@ -250,6 +275,12 @@ class Server internal constructor() : IService.Stub() {
         shellDataDir = File(Constants.SHELL_DATA_DIR_PATH)
         shellPowerDataDir =
             File("${Constants.SHELL_DATA_DIR_PATH}/${Constants.SHELL_POWER_DATA_PATH}")
+        val initialConfig = if (Os.getuid() == 0) {
+            ConfigUtil.getConfigByReading(appConfigFile)
+        } else {
+            ConfigUtil.getConfigByContentProvider()
+        }
+        initialConfig?.let(::applyLoggerConfig)
 
         if (Os.getuid() == 0) {
             shellPowerDataDir.let { shellPowerDataDir ->
@@ -288,12 +319,8 @@ class Server internal constructor() : IService.Stub() {
             sampler
         )
 
-        if (Os.getuid() == 0) {
-            ConfigUtil.getConfigByReading(appConfigFile)
-        } else {
-            ConfigUtil.getConfigByContentProvider()
-        }?.let {
-            updateConfig(it)
+        initialConfig?.let {
+            applyRuntimeConfig(it, notifyMonitor = false)
         }
 
         monitor.start()

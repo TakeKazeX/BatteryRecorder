@@ -25,9 +25,11 @@ import androidx.compose.ui.unit.dp
 import yangfentuozi.batteryrecorder.ipc.Service
 import yangfentuozi.batteryrecorder.ui.components.settings.sections.AppSection
 import yangfentuozi.batteryrecorder.ui.components.settings.sections.CalibrationSection
+import yangfentuozi.batteryrecorder.ui.components.settings.sections.LogSection
 import yangfentuozi.batteryrecorder.ui.components.settings.sections.PredictionSection
 import yangfentuozi.batteryrecorder.ui.components.settings.sections.ServerSection
 import yangfentuozi.batteryrecorder.ui.model.CalibrationActions
+import yangfentuozi.batteryrecorder.ui.model.LogActions
 import yangfentuozi.batteryrecorder.ui.model.PredictionActions
 import yangfentuozi.batteryrecorder.ui.model.ServerActions
 import yangfentuozi.batteryrecorder.ui.model.SettingsActions
@@ -58,6 +60,11 @@ fun SettingsScreen(
                 setAlwaysPollingScreenStatusEnabled = settingsViewModel::setAlwaysPollingScreenStatusEnabled,
                 setSegmentDurationMin = settingsViewModel::setSegmentDurationMin,
                 setRootBootAutoStartEnabled = settingsViewModel::setRootBootAutoStartEnabled
+            ),
+            log = LogActions(
+                setMaxLinesPerFile = settingsViewModel::setMaxLinesPerFile,
+                setMaxHistoryDays = settingsViewModel::setMaxHistoryDays,
+                setLogLevel = settingsViewModel::setLogLevel
             ),
             prediction = PredictionActions(
                 setGamePackages = settingsViewModel::setGamePackages,
@@ -108,6 +115,10 @@ fun SettingsScreen(
             item {
                 // 服务器设置
                 ServerSection(props = props)
+            }
+            item { Spacer(modifier = Modifier.size(16.dp)) }
+            item {
+                LogSection(props = props)
             }
             item { Spacer(modifier = Modifier.size(16.dp)) }
             item {

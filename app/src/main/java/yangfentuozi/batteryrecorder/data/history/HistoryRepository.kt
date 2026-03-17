@@ -87,7 +87,7 @@ object HistoryRepository {
                 needCaching = needCaching
             )
         }.onFailure { error ->
-            LoggerX.e<HistoryRepository>("加载记录统计失败: ${file.absolutePath}", tr = error)
+            LoggerX.e<HistoryRepository>("加载记录统计失败: ${file.absolutePath}")
         }.getOrNull() ?: return null
 
         return buildHistoryRecord(file, stats)

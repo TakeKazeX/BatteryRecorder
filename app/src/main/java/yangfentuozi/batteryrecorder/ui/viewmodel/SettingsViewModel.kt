@@ -13,6 +13,7 @@ import yangfentuozi.batteryrecorder.data.history.StatisticsRequest
 import yangfentuozi.batteryrecorder.ipc.Service
 import yangfentuozi.batteryrecorder.shared.config.Config
 import yangfentuozi.batteryrecorder.shared.config.ConfigConstants
+import yangfentuozi.batteryrecorder.shared.util.LoggerX
 import yangfentuozi.batteryrecorder.ui.model.SettingsUiState
 
 class SettingsViewModel : ViewModel() {
@@ -62,6 +63,18 @@ class SettingsViewModel : ViewModel() {
     private val _rootBootAutoStartEnabled =
         MutableStateFlow(ConfigConstants.DEF_ROOT_BOOT_AUTO_START_ENABLED)
     val rootBootAutoStartEnabled: StateFlow<Boolean> = _rootBootAutoStartEnabled.asStateFlow()
+
+    private val _maxLinesPerFile =
+        MutableStateFlow(ConfigConstants.DEF_LOG_MAX_LINES_PER_FILE)
+    val maxLinesPerFile: StateFlow<Int> = _maxLinesPerFile.asStateFlow()
+
+    private val _maxHistoryDays =
+        MutableStateFlow(ConfigConstants.DEF_LOG_MAX_HISTORY_DAYS)
+    val maxHistoryDays: StateFlow<Long> = _maxHistoryDays.asStateFlow()
+
+    private val _logLevel =
+        MutableStateFlow(ConfigConstants.DEF_LOG_LEVEL)
+    val logLevel: StateFlow<LoggerX.LogLevel> = _logLevel.asStateFlow()
 
     // 游戏 App 包名列表
     private val _gamePackages = MutableStateFlow<Set<String>>(emptySet())
@@ -201,14 +214,44 @@ class SettingsViewModel : ViewModel() {
                 ConfigConstants.DEF_ROOT_BOOT_AUTO_START_ENABLED
             )
 
+        _maxLinesPerFile.value =
+            prefs.getInt(
+                ConfigConstants.KEY_LOG_MAX_LINES_PER_FILE,
+                ConfigConstants.DEF_LOG_MAX_LINES_PER_FILE
+            ).coerceAtLeast(
+                ConfigConstants.MIN_LOG_MAX_LINES_PER_FILE
+            )
+
+        _maxHistoryDays.value =
+            prefs.getLong(
+                ConfigConstants.KEY_LOG_MAX_HISTORY_DAYS,
+                ConfigConstants.DEF_LOG_MAX_HISTORY_DAYS
+            ).coerceAtLeast(
+                ConfigConstants.MIN_LOG_MAX_HISTORY_DAYS
+            )
+
+        _logLevel.value =
+            LoggerX.LogLevel.fromPriority(
+                prefs.getInt(
+                    ConfigConstants.KEY_LOG_LEVEL,
+                    ConfigConstants.DEF_LOG_LEVEL.priority
+                )
+            )
+
         serverConfig = Config(
             recordIntervalMs = _recordIntervalMs.value,
             writeLatencyMs = _writeLatencyMs.value,
             batchSize = _batchSize.value,
             screenOffRecordEnabled = _screenOffRecord.value,
             segmentDurationMin = _segmentDurationMin.value,
+            maxLinesPerFile = _maxLinesPerFile.value,
+            maxHistoryDays = _maxHistoryDays.value,
+            logLevel = _logLevel.value,
             alwaysPollingScreenStatusEnabled = _alwaysPollingScreenStatusEnabled.value
         )
+        LoggerX.maxLinesPerFile = _maxLinesPerFile.value
+        LoggerX.maxHistoryDays = _maxHistoryDays.value
+        LoggerX.logLevel = _logLevel.value
 
         _gamePackages.value =
             prefs.getStringSet(ConfigConstants.KEY_GAME_PACKAGES, emptySet()) ?: emptySet()
@@ -392,6 +435,65 @@ class SettingsViewModel : ViewModel() {
         }
     }
 
+    /**
+     * 更新单个日志文件允许写入的最大行数。
+     *
+     * @param value 用户输入的目标行数，最小为 1。
+     * @return 无返回值。
+     */
+    fun setMaxLinesPerFile(value: Int) {
+        val finalValue = value.coerceAtLeast(ConfigConstants.MIN_LOG_MAX_LINES_PER_FILE)
+        viewModelScope.launch {
+            prefs.edit {
+                putInt(ConfigConstants.KEY_LOG_MAX_LINES_PER_FILE, finalValue)
+            }
+            _maxLinesPerFile.value = finalValue
+            LoggerX.maxLinesPerFile = finalValue
+            serverConfig = serverConfig.copy(maxLinesPerFile = finalValue)
+            Service.service?.updateConfig(serverConfig)
+            refreshCombinedState()
+        }
+    }
+
+    /**
+     * 更新日志文件保留天数。
+     *
+     * @param value 用户输入的目标天数，最小为 1。
+     * @return 无返回值。
+     */
+    fun setMaxHistoryDays(value: Long) {
+        val finalValue = value.coerceAtLeast(ConfigConstants.MIN_LOG_MAX_HISTORY_DAYS)
+        viewModelScope.launch {
+            prefs.edit {
+                putLong(ConfigConstants.KEY_LOG_MAX_HISTORY_DAYS, finalValue)
+            }
+            _maxHistoryDays.value = finalValue
+            LoggerX.maxHistoryDays = finalValue
+            serverConfig = serverConfig.copy(maxHistoryDays = finalValue)
+            Service.service?.updateConfig(serverConfig)
+            refreshCombinedState()
+        }
+    }
+
+    /**
+     * 更新日志输出级别。
+     *
+     * @param value 新的日志级别。
+     * @return 无返回值。
+     */
+    fun setLogLevel(value: LoggerX.LogLevel) {
+        viewModelScope.launch {
+            prefs.edit {
+                putInt(ConfigConstants.KEY_LOG_LEVEL, value.priority)
+            }
+            _logLevel.value = value
+            LoggerX.logLevel = value
+            serverConfig = serverConfig.copy(logLevel = value)
+            Service.service?.updateConfig(serverConfig)
+            refreshCombinedState()
+        }
+    }
+
     fun setGamePackages(packages: Set<String>, detectedGamePkgs: Set<String>) {
         viewModelScope.launch {
             // 用户取消勾选的自动检测游戏 → 加入 blacklist
@@ -478,6 +580,9 @@ class SettingsViewModel : ViewModel() {
             alwaysPollingScreenStatusEnabled = _alwaysPollingScreenStatusEnabled.value,
             segmentDurationMin = _segmentDurationMin.value,
             rootBootAutoStartEnabled = _rootBootAutoStartEnabled.value,
+            maxLinesPerFile = _maxLinesPerFile.value,
+            maxHistoryDays = _maxHistoryDays.value,
+            logLevel = _logLevel.value,
             gamePackages = _gamePackages.value,
             gameBlacklist = _gameBlacklist.value,
             sceneStatsRecentFileCount = _sceneStatsRecentFileCount.value,

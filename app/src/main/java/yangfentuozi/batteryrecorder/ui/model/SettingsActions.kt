@@ -1,5 +1,7 @@
 package yangfentuozi.batteryrecorder.ui.model
 
+import yangfentuozi.batteryrecorder.shared.util.LoggerX
+
 data class CalibrationActions(
     val setDualCellEnabled: (Boolean) -> Unit,
     val setDischargeDisplayPositiveEnabled: (Boolean) -> Unit,
@@ -16,6 +18,12 @@ data class ServerActions(
     val setRootBootAutoStartEnabled: (Boolean) -> Unit
 )
 
+data class LogActions(
+    val setMaxLinesPerFile: (Int) -> Unit,
+    val setMaxHistoryDays: (Long) -> Unit,
+    val setLogLevel: (LoggerX.LogLevel) -> Unit
+)
+
 data class PredictionActions(
     val setGamePackages: (Set<String>, Set<String>) -> Unit,
     val setSceneStatsRecentFileCount: (Int) -> Unit,
@@ -28,5 +36,6 @@ data class SettingsActions(
     val setCheckUpdateOnStartup: (Boolean) -> Unit,
     val calibration: CalibrationActions,
     val server: ServerActions,
+    val log: LogActions,
     val prediction: PredictionActions
 )
