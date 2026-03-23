@@ -5,6 +5,7 @@ import yangfentuozi.batteryrecorder.shared.data.BatteryStatus
 import yangfentuozi.batteryrecorder.shared.data.BatteryStatus.Charging
 import yangfentuozi.batteryrecorder.shared.data.BatteryStatus.Discharging
 import yangfentuozi.batteryrecorder.shared.data.LineRecord
+import yangfentuozi.batteryrecorder.shared.data.RecordsFile
 import yangfentuozi.batteryrecorder.shared.util.Handlers
 import yangfentuozi.batteryrecorder.shared.util.LoggerX
 import yangfentuozi.batteryrecorder.shared.writer.AdvancedWriter
@@ -17,6 +18,17 @@ class PowerRecordWriter(
     powerDir: File,
     private val fixFileOwner: ((File) -> Unit)
 ) {
+    /**
+     * 单条采样写入结果。
+     *
+     * accepted 为 true 表示该样本已经进入当前记录文件；
+     * changedRecordsFile 不为空表示当前记录文件在本次写入后发生切换。
+     */
+    data class WriteResult(
+        val accepted: Boolean,
+        val changedRecordsFile: RecordsFile? = null
+    )
+
     private val chargeDir = File(powerDir, "charge")
     private val dischargeDir = File(powerDir, "discharge")
 
@@ -35,9 +47,6 @@ class PowerRecordWriter(
 
     @Volatile
     var maxSegmentDurationMs = 24 * 60 * 60 * 1000L
-
-    @Volatile
-    var onChangedCurrRecordsFile: (() -> Unit)? = null
 
     init {
         fun makeSureExists(file: File) {
@@ -58,11 +67,11 @@ class PowerRecordWriter(
         makeSureExists(dischargeDir)
     }
 
-    fun write(record: LineRecord) {
+    fun write(record: LineRecord): WriteResult {
         if (lastStatus != record.status) {
             LoggerX.d<PowerRecordWriter>("write: 电池状态切换, $lastStatus -> ${record.status}")
         }
-        when (record.status) {
+        val result = when (record.status) {
             Charging -> {
                 chargeDataWriter.write(record, lastStatus != Charging)
             }
@@ -71,9 +80,10 @@ class PowerRecordWriter(
                 dischargeDataWriter.write(record, lastStatus != Discharging)
             }
 
-            else -> {}
+            else -> WriteResult(accepted = false)
         }
         lastStatus = record.status
+        return result
     }
 
     fun close() {
@@ -127,7 +137,7 @@ class PowerRecordWriter(
         fun write(
             record: LineRecord,
             justChangedStatus: Boolean
-        ) {
+        ): WriteResult {
 
             // 选择性丢弃一些干扰数据
             if (justChangedStatus) lastChangedStatusTime = record.timestamp
@@ -137,7 +147,7 @@ class PowerRecordWriter(
                         closeCurrentSegment()
                     }
                     LoggerX.v<BaseDelayedRecordWriter>("write: 跳过状态切换瞬时干扰数据, dir=${dir.name}")
-                    return
+                    return WriteResult(accepted = false)
                 }
             }
 
@@ -149,14 +159,30 @@ class PowerRecordWriter(
             if (startedNewSegment) {
                 LoggerX.d<BaseDelayedRecordWriter>("write: 新分段已创建, 立即落盘, file=${segmentFile?.name}")
                 writer!!.flushNow()
-                return
+                return WriteResult(
+                    accepted = true,
+                    changedRecordsFile = buildChangedRecordsFile("新分段已就绪")
+                )
             }
 
             writer!!.onEnqueued()
             if (justChangedStatus) {
+                writer!!.flushNow()
                 LoggerX.d<BaseDelayedRecordWriter>("write: 当前记录文件已切换, file=${segmentFile?.name}")
-                onChangedCurrRecordsFile?.invoke()
+                return WriteResult(
+                    accepted = true,
+                    changedRecordsFile = buildChangedRecordsFile("状态切换后续写当前分段")
+                )
             }
+            return WriteResult(accepted = true)
+        }
+
+        private fun buildChangedRecordsFile(reason: String): RecordsFile? {
+            val currentFile = segmentFile ?: return null
+            LoggerX.d<BaseDelayedRecordWriter>(
+                "buildChangedRecordsFile: reason=$reason file=${currentFile.name}"
+            )
+            return RecordsFile.fromFile(currentFile)
         }
 
         private fun startNewSegmentIfNeed(
