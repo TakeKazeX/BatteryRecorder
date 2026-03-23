@@ -17,7 +17,7 @@ class BootCompletedReceiver : BroadcastReceiver() {
         Thread(
             {
                 try {
-                    LoggerX.i<BootCompletedReceiver>("[BOOT] 收到开机广播")
+                    LoggerX.d<BootCompletedReceiver>("[BOOT] 收到开机广播")
                     val prefs = appContext.getSharedPreferences(
                         ConfigConstants.PREFS_NAME,
                         Context.MODE_PRIVATE
@@ -55,7 +55,7 @@ class BootCompletedReceiver : BroadcastReceiver() {
                                 currentBootCount
                             )
                         }
-                        LoggerX.i<BootCompletedReceiver>("[BOOT] 已记录 boot_count 去重标记，boot_count=$currentBootCount")
+                        LoggerX.d<BootCompletedReceiver>("[BOOT] 已记录 boot_count 去重标记，boot_count=$currentBootCount")
                     }
 
                     LoggerX.i<BootCompletedReceiver>("[BOOT] 满足自启动条件，准备拉起服务")

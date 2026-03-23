@@ -43,7 +43,7 @@ fun BatteryRecorderApp(
         val startupPrefs = context.getSharedPreferences(STARTUP_PROMPT_PREFS, Context.MODE_PRIVATE)
         val docsIntroShown = startupPrefs.getBoolean(KEY_DOCS_INTRO_SHOWN, false)
         if (!docsIntroShown) {
-            LoggerX.i<BatteryRecorderAppLogger>("首次进入，展示使用文档引导弹窗")
+            LoggerX.v<BatteryRecorderAppLogger>("首次进入，展示使用文档引导弹窗")
             showDocsIntro = true
         }
 
