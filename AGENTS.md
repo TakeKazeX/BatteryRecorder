@@ -1,6 +1,4 @@
-# 仓库代理工作说明
-
-本文件同时适用于 `AGENTS.md` 与 `CLAUDE.md`，用于指导代码代理在本仓库中进行检索、设计、修改与交付。
+本文件用于指导代码代理在本仓库中进行检索、设计、修改与交付；当前 `CLAUDE.md` 通过 `@AGENTS.md` 直接复用本文件内容。
 
 ## 文档定位
 
@@ -17,7 +15,7 @@ BatteryRecorder 是一个 Android 电池功率记录 App。
 - Server 进程以 root/shell 权限运行，低开销采集电池数据并写入记录文件
 - 采样优先走 JNI sysfs 读取；不可用时回退到 dumpsys/batteryproperties 方案
 - 历史数据支持图表查看、应用维度统计、场景维度统计、记录详情统计与续航预测
-- 应用启动阶段还负责首次文档引导与更新检查
+- 应用启动阶段还负责首次文档引导与更新检查；首页同时提供 Root/ADB 启动入口与日志导出
 
 ## 构建约束
 
@@ -102,11 +100,12 @@ Sampler -> SysfsSampler / DumpsysSampler -> Monitor -> PowerRecordWriter -> CSV
 ### 首页统计与预测链路
 
 - `BatteryRecorderApp` 创建并下传 `MainViewModel`、`SettingsViewModel`
+- `MainViewModel` 负责首页汇总统计、当前记录切段等待态与实时曲线缓冲
 - 首页当前记录链路已收敛到 `MainViewModel`，`HomeScreen` 不再局部创建 `LiveRecordViewModel`
 - `CurrentRecordCard` 直接消费 `MainViewModel.currentRecordUiState`
 - 首页的“续航预测卡片”和“场景统计卡片”都定义在 `ui/components/home/PredictionCard.kt`
 - 首页统计刷新参数统一来自 `SettingsViewModel.statisticsRequest`
-- 首页支持日志导出、ADB 引导、关于弹窗、首次文档引导与启动更新检查
+- 首页支持 Root 启动卡片、ADB 引导、日志导出、关于弹窗、首次文档引导与启动更新检查
 
 ### 记录详情链路
 
@@ -126,8 +125,8 @@ Sampler -> SysfsSampler / DumpsysSampler -> Monitor -> PowerRecordWriter -> CSV
 ### 应用预测详情链路
 
 - `PredictionDetailScreen` 局部创建 `PredictionDetailViewModel`
-- `PredictionDetailViewModel` 仅暴露原始统计值
-- 最终展示由 `PredictionDetailScreen` 结合 `SettingsViewModel` 中的展示设置完成
+- `PredictionDetailViewModel` 负责同步记录、聚合应用维度预测并产出 `PredictionDetailUiState`
+- `PredictionDetailScreen` 结合 `SettingsViewModel` 的展示设置处理功率符号/格式化，并按需加载应用图标
 
 ## 关键数据与展示约定
 
@@ -228,7 +227,8 @@ app/src/main/java/yangfentuozi/batteryrecorder/
 │   │   └── SyncUtil.kt
 │   ├── log/
 │   │   └── LogRepository.kt
-│   └── model/
+│   ├── model/
+│   └── ...
 ├── ipc/
 ├── startup/
 ├── ui/
@@ -246,8 +246,15 @@ app/src/main/java/yangfentuozi/batteryrecorder/
 │   ├── components/
 │   │   ├── charts/PowerCapacityChart.kt
 │   │   ├── global/
+│   │   │   ├── LazySplicedColumnGroup.kt
+│   │   │   ├── MarkdownText.kt
+│   │   │   └── ...
 │   │   ├── home/
-│   │   │   └── PredictionCard.kt  (同时包含 SceneStatsCard)
+│   │   │   ├── BatteryRecorderTopAppBar.kt
+│   │   │   ├── CurrentRecordCard.kt
+│   │   │   ├── PredictionCard.kt  (同时包含 SceneStatsCard)
+│   │   │   ├── StartServerCard.kt
+│   │   │   └── StatsCard.kt
 │   │   └── settings/sections/
 │   ├── dialog/
 │   │   ├── history/ChartGuideDialog.kt
@@ -257,10 +264,21 @@ app/src/main/java/yangfentuozi/batteryrecorder/
 │   │   │   ├── DocsIntroDialog.kt
 │   │   │   └── UpdateDialog.kt
 │   │   └── settings/
+│   │       ├── CurrentSessionWeightDialog.kt
+│   │       ├── SceneStatsRecentFileCountDialog.kt
+│   │       └── ...
 │   ├── model/
 │   ├── theme/
 │   └── viewmodel/
+│       ├── MainViewModel.kt
+│       ├── SettingsViewModel.kt
+│       ├── HistoryViewModel.kt
+│       ├── PredictionDetailViewModel.kt
+│       └── PowerDisplayMapper.kt
 └── utils/
+    ├── AppIconMemoryCache.kt
+    ├── FormatUtil.kt
+    └── UpdateUtil.kt
 ```
 
 ### Server 模块
@@ -292,8 +310,15 @@ shared/src/main/
 ├── aidl/
 └── java/yangfentuozi/batteryrecorder/shared/
     ├── config/
+    │   ├── Config.kt
+    │   ├── ConfigConstants.kt
+    │   └── ConfigUtil.kt
     ├── data/
-    │   └── RecordFileParser.kt
+    │   ├── BatteryStatus.kt
+    │   ├── LineRecord.kt
+    │   ├── RecordFileParser.kt
+    │   ├── RecordsFile.kt
+    │   └── RecordsStats.kt
     ├── sync/
     │   ├── PfdFileSender.kt
     │   ├── PfdFileReceiver.kt
@@ -314,10 +339,14 @@ shared/src/main/
 | 导航路由 | `app/.../ui/navigation/NavRoute.kt` |
 | 导航宿主与历史页共享 ViewModel | `app/.../ui/navigation/BatteryRecorderNavHost.kt` |
 | 首页 | `app/.../ui/screens/home/HomeScreen.kt` |
+| 首页当前记录卡片 | `app/.../ui/components/home/CurrentRecordCard.kt` |
+| 首页 Root 启动卡片 | `app/.../ui/components/home/StartServerCard.kt` |
+| 首页汇总卡片 | `app/.../ui/components/home/StatsCard.kt` |
 | 设置页 | `app/.../ui/screens/settings/SettingsScreen.kt` |
 | 历史列表 | `app/.../ui/screens/history/HistoryListScreen.kt` |
 | 记录详情页 | `app/.../ui/screens/history/RecordDetailScreen.kt` |
 | 预测详情页 | `app/.../ui/screens/prediction/PredictionDetailScreen.kt` |
+| 预测详情 ViewModel | `app/.../ui/viewmodel/PredictionDetailViewModel.kt` |
 | 首页预测/场景卡片 | `app/.../ui/components/home/PredictionCard.kt` |
 | 图表说明弹窗 | `app/.../ui/dialog/history/ChartGuideDialog.kt` |
 | ViewModel | `app/.../ui/viewmodel/` |
@@ -339,7 +368,7 @@ shared/src/main/
 | 图表组件 | `app/.../ui/components/charts/PowerCapacityChart.kt` |
 | 图标缓存 | `app/.../utils/AppIconMemoryCache.kt` |
 | 功率换算/格式化 | `app/.../utils/FormatUtil.kt` |
-| 更新检查工具 | `app/.../utils/UpdateUtil.kt` |
+| 更新检查工具（对象名 `UpdateUtils`） | `app/.../utils/UpdateUtil.kt` |
 | Server 进程入口 | `server/.../Main.kt` |
 | Server Binder 实现 | `server/.../Server.kt` |
 | 采样循环 | `server/.../recorder/Monitor.kt` |
@@ -351,6 +380,7 @@ shared/src/main/
 | AIDL 接口 | `server/src/main/aidl/` |
 | 共享配置 | `shared/.../config/` |
 | 共享数据模型与解析 | `shared/.../data/` |
+| 共享配置读取工具 | `shared/.../config/ConfigUtil.kt` |
 | 同步协议 | `shared/.../sync/` |
 | 日志工具 | `shared/.../util/LoggerX.kt` |
 
@@ -361,6 +391,7 @@ shared/src/main/
 - `HistoryViewModel` 在 `BatteryRecorderNavHost` 创建共享实例，不是“每个历史页面各建一个”
 - 首页当前记录卡片、实时曲线与等待态统一由 `MainViewModel.currentRecordUiState` 提供
 - `PredictionDetailViewModel` 在 `PredictionDetailScreen` 局部创建
+- `PredictionDetailViewModel.load()` 会先执行同步，再读取最近放电记录并聚合应用维度预测
 - 当前实现中，`HomeScreen` 会直接访问 `Service.service` 注册/反注册 `IRecordListener`；修改该链路时必须同时检查生命周期与监听释放
 - `HistoryRepository` 负责文件 I/O、解析、缓存和统计，不承载 Compose 展示逻辑
 - 详情页图表状态统一收敛到 `RecordDetailChartUiState`
