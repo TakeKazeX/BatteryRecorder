@@ -5,7 +5,6 @@ import yangfentuozi.batteryrecorder.shared.data.BatteryStatus
 import yangfentuozi.batteryrecorder.shared.data.BatteryStatus.Charging
 import yangfentuozi.batteryrecorder.shared.data.BatteryStatus.Discharging
 import yangfentuozi.batteryrecorder.shared.data.LineRecord
-import yangfentuozi.batteryrecorder.shared.data.RecordsFile
 import yangfentuozi.batteryrecorder.shared.util.Handlers
 import yangfentuozi.batteryrecorder.shared.util.LoggerX
 import yangfentuozi.batteryrecorder.shared.writer.AdvancedWriter
@@ -18,22 +17,6 @@ class PowerRecordWriter(
     powerDir: File,
     private val fixFileOwner: ((File) -> Unit)
 ) {
-    /**
-     * 单条采样写入结果。
-     *
-     * 结果空间只保留真实存在的三种状态：
-     * [Accepted] 表示样本进入当前记录文件但未切换文件；
-     * [Rejected] 表示样本被过滤，不应继续向上游分发；
-     * [Changed] 表示样本进入新当前文件，且文件已在本次写入后切换。
-     *
-     * 其中 [Changed] 隐含“该样本已 accepted”，调用方不应再额外维护布尔组合状态。
-     */
-    sealed interface WriteResult {
-        data object Accepted : WriteResult
-        data object Rejected : WriteResult
-        data class Changed(val recordsFile: RecordsFile) : WriteResult
-    }
-
     private val chargeDir = File(powerDir, "charge")
     private val dischargeDir = File(powerDir, "discharge")
 
@@ -52,6 +35,9 @@ class PowerRecordWriter(
 
     @Volatile
     var maxSegmentDurationMs = 24 * 60 * 60 * 1000L
+
+    @Volatile
+    var onChangedCurrRecordsFile: (() -> Unit)? = null
 
     init {
         fun makeSureExists(file: File) {
@@ -72,11 +58,11 @@ class PowerRecordWriter(
         makeSureExists(dischargeDir)
     }
 
-    fun write(record: LineRecord): WriteResult {
+    fun write(record: LineRecord) {
         if (lastStatus != record.status) {
             LoggerX.d<PowerRecordWriter>("write: 电池状态切换, $lastStatus -> ${record.status}")
         }
-        val result = when (record.status) {
+        when (record.status) {
             Charging -> {
                 chargeDataWriter.write(record, lastStatus != Charging)
             }
@@ -85,10 +71,9 @@ class PowerRecordWriter(
                 dischargeDataWriter.write(record, lastStatus != Discharging)
             }
 
-            else -> WriteResult.Rejected
+            else -> {}
         }
         lastStatus = record.status
-        return result
     }
 
     fun close() {
@@ -142,7 +127,7 @@ class PowerRecordWriter(
         fun write(
             record: LineRecord,
             justChangedStatus: Boolean
-        ): WriteResult {
+        ) {
 
             // 选择性丢弃一些干扰数据
             if (justChangedStatus) lastChangedStatusTime = record.timestamp
@@ -152,7 +137,7 @@ class PowerRecordWriter(
                         closeCurrentSegment()
                     }
                     LoggerX.v<BaseDelayedRecordWriter>("write: 跳过状态切换瞬时干扰数据, dir=${dir.name}")
-                    return WriteResult.Rejected
+                    return
                 }
             }
 
@@ -164,39 +149,14 @@ class PowerRecordWriter(
             if (startedNewSegment) {
                 LoggerX.d<BaseDelayedRecordWriter>("write: 新分段已创建, 立即落盘, file=${segmentFile?.name}")
                 writer!!.flushNow()
-                val currentFile = segmentFile
-                if (currentFile != null) {
-                    LoggerX.d<BaseDelayedRecordWriter>(
-                        "write: 当前记录文件已切换, reason=新分段已就绪 file=${currentFile.name}"
-                    )
-                    return WriteResult.Changed(RecordsFile.fromFile(currentFile))
-                }
-                // TODO: 这里理论上不应为空。先保留错误日志观察实际触发路径，如果没问他就不管
-                // 后续再收紧 writer 状态只由采样线程维护，避免在此处直接中断采样线程。
-                LoggerX.e<BaseDelayedRecordWriter>(
-                    "write: 当前记录文件切换后 segmentFile 为空, reason=新分段已就绪 dir=${dir.name}"
-                )
-                return WriteResult.Accepted
+                return
             }
 
             writer!!.onEnqueued()
             if (justChangedStatus) {
-                writer!!.flushNow()
-                val currentFile = segmentFile
-                if (currentFile != null) {
-                    LoggerX.d<BaseDelayedRecordWriter>(
-                        "write: 当前记录文件已切换, reason=状态切换后续写当前分段 file=${currentFile.name}"
-                    )
-                    return WriteResult.Changed(RecordsFile.fromFile(currentFile))
-                }
-                // TODO: 这里理论上不应为空。先保留错误日志观察实际触发路径，如果没问他就不管
-                // 后续再收紧 writer 状态只由采样线程维护，避免在此处直接中断采样线程。
-                LoggerX.e<BaseDelayedRecordWriter>(
-                    "write: 当前记录文件切换后 segmentFile 为空, reason=状态切换后续写当前分段 dir=${dir.name}"
-                )
-                return WriteResult.Accepted
+                LoggerX.d<BaseDelayedRecordWriter>("write: 当前记录文件已切换, file=${segmentFile?.name}")
+                onChangedCurrRecordsFile?.invoke()
             }
-            return WriteResult.Accepted
         }
 
         private fun startNewSegmentIfNeed(

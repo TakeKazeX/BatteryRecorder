@@ -38,7 +38,6 @@ import yangfentuozi.batteryrecorder.ipc.Service
 import yangfentuozi.batteryrecorder.server.recorder.IRecordListener
 import yangfentuozi.batteryrecorder.shared.config.ConfigConstants
 import yangfentuozi.batteryrecorder.shared.data.BatteryStatus
-import yangfentuozi.batteryrecorder.shared.data.RecordsFile
 import yangfentuozi.batteryrecorder.ui.theme.AppShape
 import yangfentuozi.batteryrecorder.utils.computePowerW
 import kotlin.math.abs
@@ -80,7 +79,7 @@ fun CalibrationDialog(
                 }
             }
 
-            override fun onChangedCurrRecordsFile(recordsFile: RecordsFile) {}
+            override fun onChangedCurrRecordsFile() {}
         }
     }
 
