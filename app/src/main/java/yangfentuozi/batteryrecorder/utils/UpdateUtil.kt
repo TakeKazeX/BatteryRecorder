@@ -7,6 +7,8 @@ import yangfentuozi.batteryrecorder.shared.util.LoggerX
 import java.net.HttpURLConnection
 import java.net.URL
 
+private const val TAG = "UpdateUtils"
+
 data class AppUpdate(
     val versionName: String,
     val versionCode: Int,
@@ -42,7 +44,7 @@ object UpdateUtils {
     suspend fun fetchUpdate(): AppUpdate? = withContext(Dispatchers.IO) {
         var connection: HttpURLConnection? = null
         try {
-            LoggerX.v<UpdateUtils>("准备请求 GitHub 最新 release")
+            LoggerX.v(TAG, "准备请求 GitHub 最新 release")
             val url = URL(GITHUB_API_URL)
             connection = url.openConnection() as HttpURLConnection
             connection.requestMethod = "GET"
@@ -54,13 +56,13 @@ object UpdateUtils {
 
             val responseCode = connection.responseCode
             if (responseCode != HttpURLConnection.HTTP_OK) {
-                LoggerX.e<UpdateUtils>("GitHub 获取更新信息失败，响应码=$responseCode")
+                LoggerX.e(TAG, "GitHub 获取更新信息失败，响应码=$responseCode")
                 return@withContext null
             }
 
             val responseBody = connection.inputStream.bufferedReader().use { it.readText() }
             if (responseBody.isEmpty()) {
-                LoggerX.e<UpdateUtils>("GitHub 最新 release 响应内容为空")
+                LoggerX.e(TAG, "GitHub 最新 release 响应内容为空")
                 return@withContext null
             }
 
@@ -73,19 +75,19 @@ object UpdateUtils {
             val downloadUrl = findApkDownloadUrl(json.optJSONArray("assets"))
 
             if (downloadUrl.isBlank()) {
-                LoggerX.e<UpdateUtils>("更新资源缺少下载地址，tag=$tagName")
+                LoggerX.e(TAG, "更新资源缺少下载地址，tag=$tagName")
                 return@withContext null
             }
 
             return@withContext if (versionCode > 0) {
-                LoggerX.d<UpdateUtils>("GitHub 最新 release 解析成功，tag=$tagName versionCode=$versionCode")
+                LoggerX.d(TAG, "GitHub 最新 release 解析成功，tag=$tagName versionCode=$versionCode")
                 AppUpdate(versionName, versionCode, body, downloadUrl)
             } else {
-                LoggerX.e<UpdateUtils>("解析 versionCode 失败，tag=$tagName")
+                LoggerX.e(TAG, "解析 versionCode 失败，tag=$tagName")
                 null
             }
         } catch (e: Exception) {
-            LoggerX.e<UpdateUtils>("GitHub 检查更新失败", tr = e)
+            LoggerX.e(TAG, "GitHub 检查更新失败", tr = e)
             return@withContext null
         } finally {
             connection?.disconnect()

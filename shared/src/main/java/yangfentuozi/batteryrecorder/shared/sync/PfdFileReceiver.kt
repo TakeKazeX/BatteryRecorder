@@ -12,6 +12,8 @@ import java.io.IOException
 import java.io.InputStream
 import kotlin.io.path.Path
 
+private const val TAG = "PfdFileReceiver"
+
 object PfdFileReceiver {
 
     fun receiveToDir(
@@ -20,12 +22,12 @@ object PfdFileReceiver {
         callback: ((savedFile: File, size: Long) -> Unit)? = null
     ) {
         if (!outputDir.exists() && !outputDir.mkdirs()) {
-            LoggerX.e<PfdFileReceiver>("receiveToDir: 创建接收目录失败, dir=${outputDir.absolutePath}")
+            LoggerX.e(TAG, "receiveToDir: 创建接收目录失败, dir=${outputDir.absolutePath}")
             throw IOException("Failed to create dir: ${outputDir.absolutePath}")
         }
 
         val basePath = outputDir.toPath()
-        LoggerX.i<PfdFileReceiver>("receiveToDir: 开始接收文件到目录, dir=${outputDir.absolutePath}")
+        LoggerX.i(TAG, "receiveToDir: 开始接收文件到目录, dir=${outputDir.absolutePath}")
         var receivedCount = 0
         var receivedBytes = 0L
 
@@ -37,7 +39,7 @@ object PfdFileReceiver {
 
                     when (code) {
                         SyncConstants.CODE_FINISHED -> {
-                            LoggerX.i<PfdFileReceiver>("receiveToDir: 文件接收完成, count=$receivedCount bytes=$receivedBytes")
+                            LoggerX.i(TAG, "receiveToDir: 文件接收完成, count=$receivedCount bytes=$receivedBytes")
                             return
                         }
 
@@ -60,7 +62,7 @@ object PfdFileReceiver {
                     val outFile = basePath.resolve(relativizePath).toFile()
                     outFile.parentFile?.let { parent ->
                         if (!parent.exists() && !parent.mkdirs()) {
-                            LoggerX.e<PfdFileReceiver>("receiveToDir: 创建父目录失败, dir=${parent.absolutePath}")
+                            LoggerX.e(TAG, "receiveToDir: 创建父目录失败, dir=${parent.absolutePath}")
                             throw IOException("Failed to create parent dir: ${parent.absolutePath}")
                         }
                     }
@@ -83,7 +85,7 @@ object PfdFileReceiver {
 
                     receivedCount += 1
                     receivedBytes += size
-                    LoggerX.d<PfdFileReceiver>("receiveToDir: 接收文件, relative=$relativizePath size=$size")
+                    LoggerX.d(TAG, "receiveToDir: 接收文件, relative=$relativizePath size=$size")
                     callback?.invoke(outFile, size)
                 }
             }

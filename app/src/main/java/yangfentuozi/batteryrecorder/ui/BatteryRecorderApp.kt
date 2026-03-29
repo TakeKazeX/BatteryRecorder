@@ -23,7 +23,7 @@ import yangfentuozi.batteryrecorder.ui.viewmodel.SettingsViewModel
 import yangfentuozi.batteryrecorder.utils.AppUpdate
 import yangfentuozi.batteryrecorder.utils.UpdateUtils
 
-private object BatteryRecorderAppLogger
+private const val TAG = "BatteryRecorderApp"
 
 private const val STARTUP_PROMPT_PREFS = "startup_prompt"
 private const val KEY_DOCS_INTRO_SHOWN = "docs_intro_shown"
@@ -43,31 +43,33 @@ fun BatteryRecorderApp(
         val startupPrefs = context.getSharedPreferences(STARTUP_PROMPT_PREFS, Context.MODE_PRIVATE)
         val docsIntroShown = startupPrefs.getBoolean(KEY_DOCS_INTRO_SHOWN, false)
         if (!docsIntroShown) {
-            LoggerX.v<BatteryRecorderAppLogger>("首次进入，展示使用文档引导弹窗")
+            LoggerX.v(TAG, "首次进入，展示使用文档引导弹窗")
             showDocsIntro = true
         }
 
         if (hasCheckedUpdateOnStartup) return@LaunchedEffect
         if (!settingsViewModel.settingsUiState.value.checkUpdateOnStartup) {
-            LoggerX.d<BatteryRecorderAppLogger>("启动更新检测已关闭，跳过检查")
+            LoggerX.d(TAG, "启动更新检测已关闭，跳过检查")
             return@LaunchedEffect
         }
         hasCheckedUpdateOnStartup = true
-        LoggerX.d<BatteryRecorderAppLogger>("启动更新检测开始，请求最新 release")
+        LoggerX.d(TAG, "启动更新检测开始，请求最新 release")
 
         val update = UpdateUtils.fetchUpdate() ?: run {
-            LoggerX.w<BatteryRecorderAppLogger>("启动更新检测失败，未获取到可用更新信息")
+            LoggerX.w(TAG, "启动更新检测失败，未获取到可用更新信息")
             Toast.makeText(context, "检测更新失败", Toast.LENGTH_SHORT).show()
             return@LaunchedEffect
         }
         if (BuildConfig.VERSION_CODE >= update.versionCode) {
-            LoggerX.i<BatteryRecorderAppLogger>(
+            LoggerX.i(
+                TAG,
                 "启动更新检测完成，无需更新，remote=${update.versionCode} local=${BuildConfig.VERSION_CODE}"
             )
             return@LaunchedEffect
         }
 
-        LoggerX.i<BatteryRecorderAppLogger>(
+        LoggerX.i(
+            TAG,
             "启动更新检测完成，发现新版本，remote=${update.versionCode} local=${BuildConfig.VERSION_CODE}"
         )
         pendingUpdate = update
@@ -95,7 +97,7 @@ fun BatteryRecorderApp(
                     .edit {
                         putBoolean(KEY_DOCS_INTRO_SHOWN, true)
                     }
-                LoggerX.v<BatteryRecorderAppLogger>("已打开使用文档，关闭首次引导弹窗")
+                LoggerX.v(TAG, "已打开使用文档，关闭首次引导弹窗")
                 showDocsIntro = false
             }
         )

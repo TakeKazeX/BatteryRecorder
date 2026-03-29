@@ -9,6 +9,8 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import yangfentuozi.batteryrecorder.shared.util.LoggerX
 
+private const val TAG = "AppIconMemoryCache"
+
 object AppIconMemoryCache {
     val chartIconSizeDp = 9.dp
 
@@ -51,7 +53,7 @@ object AppIconMemoryCache {
                     .toBitmap(iconSizePx, iconSizePx)
                     .asImageBitmap()
             }.onFailure { error ->
-                LoggerX.w<AppIconMemoryCache>(
+                LoggerX.w(TAG, 
                     "[APP_ICON] 加载失败 package=$packageName",
                     error
                 )

@@ -16,6 +16,8 @@ import yangfentuozi.batteryrecorder.shared.config.ConfigConstants
 import yangfentuozi.batteryrecorder.shared.util.LoggerX
 import yangfentuozi.batteryrecorder.ui.model.SettingsUiState
 
+private const val TAG = "SettingsViewModel"
+
 class SettingsViewModel : ViewModel() {
     private lateinit var prefs: SharedPreferences
 
@@ -236,7 +238,7 @@ class SettingsViewModel : ViewModel() {
             logLevel = _logLevel.value,
             alwaysPollingScreenStatusEnabled = _alwaysPollingScreenStatusEnabled.value
         )
-        LoggerX.d<SettingsViewModel>(
+        LoggerX.d(TAG, 
             "[设置] loadSettings 完成: intervalMs=${serverConfig.recordIntervalMs} writeLatencyMs=${serverConfig.writeLatencyMs} " +
                 "batchSize=${serverConfig.batchSize} screenOffRecord=${serverConfig.screenOffRecordEnabled} " +
                 "polling=${serverConfig.alwaysPollingScreenStatusEnabled} logLevel=${serverConfig.logLevel}"
@@ -343,7 +345,7 @@ class SettingsViewModel : ViewModel() {
             prefs.edit { putLong(ConfigConstants.KEY_RECORD_INTERVAL_MS, finalValue) }
             _recordIntervalMs.value = finalValue
             serverConfig = serverConfig.copy(recordIntervalMs = finalValue)
-            LoggerX.i<SettingsViewModel>("[设置] 更新记录间隔并准备下发: intervalMs=$finalValue")
+            LoggerX.i(TAG, "[设置] 更新记录间隔并准备下发: intervalMs=$finalValue")
             Service.service?.updateConfig(serverConfig)
             refreshCombinedState()
         }
@@ -362,7 +364,7 @@ class SettingsViewModel : ViewModel() {
             prefs.edit { putLong(ConfigConstants.KEY_WRITE_LATENCY_MS, finalValue) }
             _writeLatencyMs.value = finalValue
             serverConfig = serverConfig.copy(writeLatencyMs = finalValue)
-            LoggerX.i<SettingsViewModel>("[设置] 更新写入延迟并准备下发: writeLatencyMs=$finalValue")
+            LoggerX.i(TAG, "[设置] 更新写入延迟并准备下发: writeLatencyMs=$finalValue")
             Service.service?.updateConfig(serverConfig)
             refreshCombinedState()
         }
@@ -378,7 +380,7 @@ class SettingsViewModel : ViewModel() {
             prefs.edit { putInt(ConfigConstants.KEY_BATCH_SIZE, finalValue) }
             _batchSize.value = finalValue
             serverConfig = serverConfig.copy(batchSize = finalValue)
-            LoggerX.i<SettingsViewModel>("[设置] 更新批次大小并准备下发: batchSize=$finalValue")
+            LoggerX.i(TAG, "[设置] 更新批次大小并准备下发: batchSize=$finalValue")
             Service.service?.updateConfig(serverConfig)
             refreshCombinedState()
         }
@@ -389,7 +391,7 @@ class SettingsViewModel : ViewModel() {
             prefs.edit { putBoolean(ConfigConstants.KEY_SCREEN_OFF_RECORD_ENABLED, enabled) }
             _screenOffRecord.value = enabled
             serverConfig = serverConfig.copy(screenOffRecordEnabled = enabled)
-            LoggerX.i<SettingsViewModel>("[设置] 更新息屏记录并准备下发: enabled=$enabled")
+            LoggerX.i(TAG, "[设置] 更新息屏记录并准备下发: enabled=$enabled")
             Service.service?.updateConfig(serverConfig)
             refreshCombinedState()
         }
@@ -400,7 +402,7 @@ class SettingsViewModel : ViewModel() {
             prefs.edit { putBoolean(ConfigConstants.KEY_ALWAYS_POLLING_SCREEN_STATUS_ENABLED, enabled) }
             _alwaysPollingScreenStatusEnabled.value = enabled
             serverConfig = serverConfig.copy(alwaysPollingScreenStatusEnabled = enabled)
-            LoggerX.i<SettingsViewModel>("[设置] 更新轮询亮屏状态并准备下发: enabled=$enabled")
+            LoggerX.i(TAG, "[设置] 更新轮询亮屏状态并准备下发: enabled=$enabled")
             Service.service?.updateConfig(serverConfig)
             refreshCombinedState()
         }
@@ -465,7 +467,7 @@ class SettingsViewModel : ViewModel() {
             _logLevel.value = value
             LoggerX.logLevel = value
             serverConfig = serverConfig.copy(logLevel = value)
-            LoggerX.i<SettingsViewModel>("[设置] 更新日志级别并准备下发: logLevel=$value")
+            LoggerX.i(TAG, "[设置] 更新日志级别并准备下发: logLevel=$value")
             Service.service?.updateConfig(serverConfig)
             refreshCombinedState()
         }

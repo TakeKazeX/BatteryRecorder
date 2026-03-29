@@ -8,6 +8,8 @@ import androidx.core.content.edit
 import yangfentuozi.batteryrecorder.shared.config.ConfigConstants
 import yangfentuozi.batteryrecorder.shared.util.LoggerX
 
+private const val TAG = "BootCompletedReceiver"
+
 class BootCompletedReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
         if (intent.action != Intent.ACTION_BOOT_COMPLETED) return
@@ -17,7 +19,7 @@ class BootCompletedReceiver : BroadcastReceiver() {
         Thread(
             {
                 try {
-                    LoggerX.d<BootCompletedReceiver>("[BOOT] 收到开机广播")
+                    LoggerX.d(TAG, "[BOOT] 收到开机广播")
                     val prefs = appContext.getSharedPreferences(
                         ConfigConstants.PREFS_NAME,
                         Context.MODE_PRIVATE
@@ -27,7 +29,7 @@ class BootCompletedReceiver : BroadcastReceiver() {
                         ConfigConstants.DEF_ROOT_BOOT_AUTO_START_ENABLED
                     )
                     if (!autoStartEnabled) {
-                        LoggerX.i<BootCompletedReceiver>("[BOOT] 开机 ROOT 自启动未开启")
+                        LoggerX.i(TAG, "[BOOT] 开机 ROOT 自启动未开启")
                         return@Thread
                     }
 
@@ -37,7 +39,7 @@ class BootCompletedReceiver : BroadcastReceiver() {
                             Settings.Global.BOOT_COUNT
                         )
                     }.getOrElse {
-                        LoggerX.w<BootCompletedReceiver>("[BOOT] 读取 boot_count 失败，跳过本次去重", tr = it)
+                        LoggerX.w(TAG, "[BOOT] 读取 boot_count 失败，跳过本次去重", tr = it)
                         Int.MIN_VALUE
                     }
                     if (currentBootCount != Int.MIN_VALUE) {
@@ -46,7 +48,7 @@ class BootCompletedReceiver : BroadcastReceiver() {
                             ConfigConstants.DEF_ROOT_BOOT_AUTO_START_LAST_BOOT_COUNT
                         )
                         if (lastBootCount == currentBootCount) {
-                            LoggerX.i<BootCompletedReceiver>("[BOOT] 命中 boot_count 去重，跳过自启动，boot_count=$currentBootCount")
+                            LoggerX.i(TAG, "[BOOT] 命中 boot_count 去重，跳过自启动，boot_count=$currentBootCount")
                             return@Thread
                         }
                         prefs.edit {
@@ -55,17 +57,17 @@ class BootCompletedReceiver : BroadcastReceiver() {
                                 currentBootCount
                             )
                         }
-                        LoggerX.d<BootCompletedReceiver>("[BOOT] 已记录 boot_count 去重标记，boot_count=$currentBootCount")
+                        LoggerX.d(TAG, "[BOOT] 已记录 boot_count 去重标记，boot_count=$currentBootCount")
                     }
 
-                    LoggerX.i<BootCompletedReceiver>("[BOOT] 满足自启动条件，准备拉起服务")
+                    LoggerX.i(TAG, "[BOOT] 满足自启动条件，准备拉起服务")
                     val started = RootServerStarter.start(
                         context = appContext,
                         source = RootServerStarter.Source.BOOT
                     )
                     BootAutoStartNotification.notifyBootAutoStartResult(appContext, started)
                 } catch (e: Throwable) {
-                    LoggerX.e<BootCompletedReceiver>("[BOOT] 开机自启动执行失败", tr = e)
+                    LoggerX.e(TAG, "[BOOT] 开机自启动执行失败", tr = e)
                 } finally {
                     pendingResult.finish()
                 }

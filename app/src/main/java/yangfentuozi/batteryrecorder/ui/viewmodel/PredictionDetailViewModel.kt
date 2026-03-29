@@ -19,6 +19,8 @@ import yangfentuozi.batteryrecorder.data.history.SyncUtil
 import yangfentuozi.batteryrecorder.shared.data.BatteryStatus
 import yangfentuozi.batteryrecorder.shared.util.LoggerX
 
+private const val TAG = "PredictionDetailViewModel"
+
 /**
  * 预测详情页单行展示数据。
  *
@@ -36,8 +38,6 @@ data class PredictionDetailUiState(
     val entries: List<PredictionDetailUiEntry> = emptyList(),
     val errorMessage: String? = null
 )
-
-private object PredictionDetailViewModelTag
 
 class PredictionDetailViewModel : ViewModel() {
 
@@ -88,7 +88,7 @@ class PredictionDetailViewModel : ViewModel() {
                 }
             } catch (error: Throwable) {
                 if (error is kotlinx.coroutines.CancellationException) throw error
-                LoggerX.e<PredictionDetailViewModelTag>("加载应用预测失败", tr = error)
+                LoggerX.e(TAG, "加载应用预测失败", tr = error)
                 if (generation == loadGeneration) {
                     _uiState.value = PredictionDetailUiState(
                         isLoading = false,

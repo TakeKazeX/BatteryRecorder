@@ -4,6 +4,8 @@ import yangfentuozi.batteryrecorder.shared.util.LoggerX
 import kotlin.math.abs
 import kotlin.math.roundToInt
 
+private const val TAG = "BatteryPredictor"
+
 // 预测终点统一按 1% 计算，分别给出当前电量与满电的可用时长
 private const val SOC_CUTOFF = 1.0
 private const val MIN_SCENE_MS = 30 * 60 * 1000L  // 30 分钟
@@ -41,7 +43,7 @@ object BatteryPredictor {
     ): PredictionResult {
         val insufficientReason = getInsufficientReason(sceneStats, upstreamInsufficientReason)
         if (insufficientReason != null) {
-            LoggerX.w<BatteryPredictor>("[预测] 首页预测数据不足: reason=$insufficientReason")
+            LoggerX.w(TAG, "[预测] 首页预测数据不足: reason=$insufficientReason")
             return PredictionResult(
                 screenOffCurrentHours = null,
                 screenOffFullHours = null,
@@ -66,7 +68,7 @@ object BatteryPredictor {
         // k 合理性校验：反推整体掉电速率，超过阈值视为 SOC 跳变等异常
         val overallDrainPerHour = validSceneStats.rawTotalSocDrop / validSceneStats.totalDurationMs * 3_600_000.0
         if (overallDrainPerHour > MAX_DRAIN_RATE_PER_HOUR) {
-            LoggerX.w<BatteryPredictor>("[预测] 首页预测异常掉电: drainPerHour=$overallDrainPerHour")
+            LoggerX.w(TAG, "[预测] 首页预测异常掉电: drainPerHour=$overallDrainPerHour")
             return PredictionResult(
                 screenOffCurrentHours = null,
                 screenOffFullHours = null,
@@ -112,7 +114,7 @@ object BatteryPredictor {
             confidenceScore = confidenceScore,
             insufficientReason = null
         )
-        LoggerX.i<BatteryPredictor>(
+        LoggerX.i(TAG, 
             "[预测] 首页预测完成: currentSoc=$currentSoc confidence=$confidenceScore offCurrent=${result.screenOffCurrentHours} onCurrent=${result.screenOnDailyCurrentHours}"
         )
         return result
@@ -161,7 +163,7 @@ object BatteryPredictor {
         val currentRemaining = (currentSoc - SOC_CUTOFF).coerceAtLeast(0.0)
         val drainPerMs = entry.effectiveSocDrop / entry.effectiveForegroundMs
         val hours = currentRemaining / (drainPerMs * 3_600_000.0)
-        LoggerX.d<BatteryPredictor>(
+        LoggerX.d(TAG, 
             "[预测] 应用预测完成: package=${entry.packageName} currentSoc=$currentSoc hours=$hours"
         )
         return hours

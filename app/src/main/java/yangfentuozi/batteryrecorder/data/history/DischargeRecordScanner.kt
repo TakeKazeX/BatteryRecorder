@@ -13,6 +13,8 @@ import kotlin.math.exp
 import kotlin.math.ln
 import kotlin.math.min
 
+private const val TAG = "DischargeRecordScanner"
+
 /**
  * 采样点之间的有效区间。
  *
@@ -113,7 +115,7 @@ object DischargeRecordScanner {
             ?.sortedByDescending { it.lastModified() }
             ?.take(effectiveRecentFileCount)
             ?: emptyList()
-        LoggerX.d<DischargeRecordScanner>(
+        LoggerX.d(TAG, 
             "[预测] 选择最近放电文件: requested=$recentFileCount effective=$effectiveRecentFileCount selected=${files.size}"
         )
         return files
@@ -130,7 +132,7 @@ object DischargeRecordScanner {
     ): DischargeScanSummary? {
         val files = listRecentDischargeFiles(context, request.sceneStatsRecentFileCount)
         if (files.isEmpty()) {
-            LoggerX.d<DischargeRecordScanner>("[预测] 无放电文件可扫描")
+            LoggerX.d(TAG, "[预测] 无放电文件可扫描")
             return null
         }
 
@@ -142,7 +144,7 @@ object DischargeRecordScanner {
                 currentDischargeFileName != null &&
                 maxMultiplier > 1.0 &&
                 halfLifeMs > 0.0
-        LoggerX.d<DischargeRecordScanner>(
+        LoggerX.d(TAG, 
             "[预测] 开始扫描放电文件: selected=${files.size} maxGapMs=$maxGapMs enableWeight=$enableTimeDecayWeight current=$currentDischargeFileName"
         )
 
@@ -169,13 +171,13 @@ object DischargeRecordScanner {
                     RejectedReason.AbnormalDrainRate -> rejectedAbnormalDrainRateCount += 1
                     null -> {}
                 }
-                LoggerX.d<DischargeRecordScanner>(
+                LoggerX.d(TAG, 
                     "[预测] 放电文件过滤: file=${file.name} reason=${result.rejectedReason}"
                 )
                 return@forEach
             }
             acceptedFileCount += 1
-            LoggerX.v<DischargeRecordScanner>(
+            LoggerX.v(TAG, 
                 "[预测] 放电文件通过: file=${file.name} intervals=${acceptedFile.intervals.size} rawDurationMs=${acceptedFile.rawTotalDurationMs} rawSocDrop=${acceptedFile.rawTotalCapDrop}"
             )
             onAcceptedFile(acceptedFile)
@@ -189,7 +191,7 @@ object DischargeRecordScanner {
             rejectedNoSocDropCount = rejectedNoSocDropCount,
             rejectedAbnormalDrainRateCount = rejectedAbnormalDrainRateCount
         )
-        LoggerX.i<DischargeRecordScanner>(
+        LoggerX.i(TAG, 
             "[预测] 放电扫描完成: selected=${summary.selectedFileCount} accepted=${summary.acceptedFileCount} noDuration=${summary.rejectedNoValidDurationCount} noEnergy=${summary.rejectedNoEnergyCount} noSoc=${summary.rejectedNoSocDropCount} abnormal=${summary.rejectedAbnormalDrainRateCount}"
         )
         return summary
@@ -296,7 +298,7 @@ object DischargeRecordScanner {
                 (BuildConfig.DEBUG || rawTotalDurationMs >= MIN_CURRENT_SESSION_MS) &&
                 (BuildConfig.DEBUG || rawTotalCapDrop >= MIN_CURRENT_SESSION_SOC_DROP)
         if (useWeightedCurrentSession) {
-            LoggerX.d<DischargeRecordScanner>(
+            LoggerX.d(TAG, 
                 "[预测] 启用当次记录加权: file=${file.name} endTs=$fileEndTs rawDurationMs=$rawTotalDurationMs rawSocDrop=$rawTotalCapDrop"
             )
         }

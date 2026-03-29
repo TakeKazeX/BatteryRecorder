@@ -8,6 +8,8 @@ import android.os.Bundle
 import android.os.IBinder
 import yangfentuozi.batteryrecorder.shared.util.LoggerX
 
+private const val TAG = "BinderProvider"
+
 class BinderProvider : ContentProvider() {
 
     override fun onCreate(): Boolean = true
@@ -21,9 +23,9 @@ class BinderProvider : ContentProvider() {
         val binderAlive = binder?.pingBinder() == true
         if (binderAlive) {
             Service.binder = binder
-            LoggerX.i<BinderProvider>("[BINDER] 收到服务 Binder，alive=$binderAlive")
+            LoggerX.i(TAG, "[BINDER] 收到服务 Binder，alive=$binderAlive")
         } else {
-            LoggerX.w<BinderProvider>("[BINDER] 收到空或失效 Binder，alive=$binderAlive")
+            LoggerX.w(TAG, "[BINDER] 收到空或失效 Binder，alive=$binderAlive")
         }
         return Bundle.EMPTY
     }

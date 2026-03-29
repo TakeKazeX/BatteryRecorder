@@ -11,6 +11,8 @@ import java.io.IOException
 import java.io.OutputStream
 import java.nio.file.Path
 
+private const val TAG = "PfdFileSender"
+
 object PfdFileSender {
 
     fun sendFile(
@@ -19,7 +21,7 @@ object PfdFileSender {
         callback: ((File) -> Unit)? = null
     ) {
         val basePath = file.toPath()
-        LoggerX.i<PfdFileSender>("sendFile: 开始发送文件, base=${file.absolutePath}")
+        LoggerX.i(TAG, "sendFile: 开始发送文件, base=${file.absolutePath}")
         var sentCount = 0
         var sentBytes = 0L
         ParcelFileDescriptor.AutoCloseOutputStream(writePfd).use { raw ->
@@ -33,7 +35,7 @@ object PfdFileSender {
                 out.flush()
             }
         }
-        LoggerX.i<PfdFileSender>("sendFile: 文件发送完成, count=$sentCount bytes=$sentBytes")
+        LoggerX.i(TAG, "sendFile: 文件发送完成, count=$sentCount bytes=$sentBytes")
     }
 
     private fun sendFileInner(
@@ -81,7 +83,7 @@ object PfdFileSender {
             }
             out.flush()
 
-            LoggerX.d<PfdFileSender>("sendFileInner: 发送文件, relative=${basePath.relativize(file.toPath())} size=$size")
+            LoggerX.d(TAG, "sendFileInner: 发送文件, relative=${basePath.relativize(file.toPath())} size=$size")
             onSent(size)
             callback?.invoke(file)
         }

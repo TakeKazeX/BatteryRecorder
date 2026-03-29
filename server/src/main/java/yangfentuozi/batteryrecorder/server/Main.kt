@@ -7,13 +7,15 @@ import yangfentuozi.batteryrecorder.shared.util.LoggerX
 import java.io.File
 import java.io.IOException
 
+private const val TAG = "Main"
+
 @Keep
 object Main {
 
     @Keep
     @JvmStatic
     fun main(args: Array<String>) {
-        LoggerX.i<Main>("main: 准备初始化 Server")
+        LoggerX.i(TAG, "main: 准备初始化 Server")
         DdmHandleAppName.setAppName("battery_recorder", 0)
         // 设置OOM保活
         setSelfOomScoreAdj()
@@ -27,10 +29,10 @@ object Main {
         */
         // 指定日志文件夹
         LoggerX.logDirPath = "${Constants.SHELL_DATA_DIR_PATH}/${Constants.SHELL_LOG_DIR_PATH}"
-        LoggerX.d<Main>(
+        LoggerX.d(TAG, 
             "main: 日志目录初始化完成, dir=${Constants.SHELL_DATA_DIR_PATH}/${Constants.SHELL_LOG_DIR_PATH}"
         )
-        LoggerX.d<Main>("main: 即将进入 Server 初始化")
+        LoggerX.d(TAG, "main: 即将进入 Server 初始化")
 
         Server()
     }
@@ -42,16 +44,16 @@ object Main {
             oomScoreAdjFile.writeText("$oomScoreAdjValue\n")
             val actualValue: String = oomScoreAdjFile.readText().trim()
             if (oomScoreAdjValue.toString() != actualValue) {
-                LoggerX.e<Main>(
+                LoggerX.e(TAG, 
                     "setSelfOomScoreAdj: 设置 oom_score_adj 失败, expected=$oomScoreAdjValue actual=$actualValue"
                 )
                 return
             }
-            LoggerX.i<Main>("setSelfOomScoreAdj: 设置 oom_score_adj 成功, actual=$oomScoreAdjValue")
+            LoggerX.i(TAG, "setSelfOomScoreAdj: 设置 oom_score_adj 成功, actual=$oomScoreAdjValue")
         } catch (e: IOException) {
-            LoggerX.e<Main>("setSelfOomScoreAdj: 设置 oom_score_adj 失败", tr = e)
+            LoggerX.e(TAG, "setSelfOomScoreAdj: 设置 oom_score_adj 失败", tr = e)
         } catch (e: RuntimeException) {
-            LoggerX.e<Main>("setSelfOomScoreAdj: 设置 oom_score_adj 失败", tr = e)
+            LoggerX.e(TAG, "setSelfOomScoreAdj: 设置 oom_score_adj 失败", tr = e)
         }
     }
 }

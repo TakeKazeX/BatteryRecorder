@@ -3,6 +3,8 @@ package yangfentuozi.batteryrecorder.shared.data
 import yangfentuozi.batteryrecorder.shared.util.LoggerX
 import java.io.File
 
+private const val TAG = "RecordFileParser"
+
 object RecordFileParser {
     private const val TIMESTAMP_LENGTH = 13
 
@@ -17,7 +19,7 @@ object RecordFileParser {
             lastTimestamp = record.timestamp
             records += record
         }
-        LoggerX.d<RecordFileParser>(
+        LoggerX.d(TAG, 
             "parseToList: 解析完成, file=${file.name} count=${records.size} firstTs=$firstTimestamp lastTs=$lastTimestamp"
         )
         return records
@@ -27,7 +29,7 @@ object RecordFileParser {
         file: File,
         onRecord: (LineRecord) -> Unit
     ) {
-        LoggerX.d<RecordFileParser>("forEachValidRecord: 开始解析, file=${file.absolutePath}")
+        LoggerX.d(TAG, "forEachValidRecord: 开始解析, file=${file.absolutePath}")
         var lineNumber = 0
         var previousParsedTimestamp: Long? = null
 
@@ -88,7 +90,7 @@ object RecordFileParser {
         lineNumber: Int,
         reason: String
     ) {
-        LoggerX.w<RecordFileParser>(
+        LoggerX.w(TAG, 
             "logInvalidLine: 跳过损坏记录, file=${file.absolutePath} line=$lineNumber reason=$reason"
         )
     }

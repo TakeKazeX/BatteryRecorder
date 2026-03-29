@@ -32,6 +32,8 @@ import yangfentuozi.batteryrecorder.shared.util.LoggerX
 import yangfentuozi.batteryrecorder.ui.model.CurrentRecordUiState
 import yangfentuozi.batteryrecorder.ui.model.LiveRecordSample
 
+private const val TAG = "MainViewModel"
+
 private const val MAX_LIVE_POINTS = 20
 
 private enum class StatisticsRefreshMode {
@@ -93,14 +95,14 @@ class MainViewModel : ViewModel() {
 
     private val serviceListener = object : Service.ServiceConnection {
         override fun onServiceConnected() {
-            LoggerX.i<MainViewModel>("[首页] 服务已连接")
+            LoggerX.i(TAG, "[首页] 服务已连接")
             mainHandler.post {
                 _serviceConnected.value = true
             }
         }
 
         override fun onServiceDisconnected() {
-            LoggerX.w<MainViewModel>("[首页] 服务已断开")
+            LoggerX.w(TAG, "[首页] 服务已断开")
             mainHandler.post {
                 _serviceConnected.value = false
             }
@@ -110,7 +112,7 @@ class MainViewModel : ViewModel() {
     init {
         Service.addListener(serviceListener)
         _serviceConnected.value = Service.service != null
-        LoggerX.d<MainViewModel>("[首页] MainViewModel 初始化: serviceConnected=${_serviceConnected.value}")
+        LoggerX.d(TAG, "[首页] MainViewModel 初始化: serviceConnected=${_serviceConnected.value}")
     }
 
     override fun onCleared() {
@@ -128,9 +130,9 @@ class MainViewModel : ViewModel() {
 
     fun stopService() {
         if (Service.service == null) {
-            LoggerX.w<MainViewModel>("[首页] 用户请求停止服务，但服务未连接")
+            LoggerX.w(TAG, "[首页] 用户请求停止服务，但服务未连接")
         } else {
-            LoggerX.i<MainViewModel>("[首页] 用户请求停止服务")
+            LoggerX.i(TAG, "[首页] 用户请求停止服务")
         }
         Thread {
             Service.service?.stopService()
@@ -155,19 +157,19 @@ class MainViewModel : ViewModel() {
     fun exportLogs(context: Context, destinationUri: Uri) {
         viewModelScope.launch {
             try {
-                LoggerX.i<MainViewModel>("[导出] 开始导出首页日志")
+                LoggerX.i(TAG, "[导出] 开始导出首页日志")
                 withContext(Dispatchers.IO) {
                     LogRepository.exportLogsZip(
                         context = context,
                         destinationUri = destinationUri
                     )
                 }
-                LoggerX.i<MainViewModel>("[导出] 首页日志导出成功")
+                LoggerX.i(TAG, "[导出] 首页日志导出成功")
                 _userMessage.value = "导出成功"
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
-                LoggerX.e<MainViewModel>("[导出] 日志导出失败", tr = e)
+                LoggerX.e(TAG, "[导出] 日志导出失败", tr = e)
                 _userMessage.value = "导出失败"
             }
         }
@@ -226,7 +228,7 @@ class MainViewModel : ViewModel() {
         if (liveSegmentBuffer.recordsFileName == nextRecordsFileName) {
             return
         }
-        LoggerX.d<MainViewModel>(
+        LoggerX.d(TAG, 
             "[首页] 切换实时分段缓存: ${liveSegmentBuffer.recordsFileName} -> $nextRecordsFileName"
         )
         liveSegmentBuffer.recordsFileName = nextRecordsFileName
@@ -243,7 +245,7 @@ class MainViewModel : ViewModel() {
         request: StatisticsRequest = StatisticsRequest()
     ) {
         if (_isLoadingStats.value) {
-            LoggerX.v<MainViewModel>("[首页] loadStatistics 已在进行，跳过重复请求")
+            LoggerX.v(TAG, "[首页] loadStatistics 已在进行，跳过重复请求")
             return
         }
         startLoadStatistics(
@@ -258,7 +260,7 @@ class MainViewModel : ViewModel() {
         request: StatisticsRequest = StatisticsRequest()
     ) {
         if (_isLoadingStats.value) {
-            LoggerX.v<MainViewModel>("[首页] refreshStatistics 已在进行，跳过")
+            LoggerX.v(TAG, "[首页] refreshStatistics 已在进行，跳过")
             return
         }
         startLoadStatistics(
@@ -329,7 +331,7 @@ class MainViewModel : ViewModel() {
                     record = null,
                     livePoints = emptyList()
                 )
-            LoggerX.d<MainViewModel>("[首页] 当前记录文件已切换，等待有效样本: ${recordsFile.name}")
+            LoggerX.d(TAG, "[首页] 当前记录文件已切换，等待有效样本: ${recordsFile.name}")
             refreshStatisticsTrackingCurrentRecord(
                 context = context.applicationContext,
                 request = request,
@@ -371,7 +373,7 @@ class MainViewModel : ViewModel() {
                     lastTemp = sample.temp
                 )
             if (pendingFile != null && !_isLoadingStats.value) {
-                LoggerX.v<MainViewModel>("[首页] 收到新采样，重试当前分段: ${pendingFile.name}")
+                LoggerX.v(TAG, "[首页] 收到新采样，重试当前分段: ${pendingFile.name}")
                 refreshStatisticsTrackingCurrentRecord(
                     context = context.applicationContext,
                     request = request,
@@ -410,7 +412,7 @@ class MainViewModel : ViewModel() {
         return withContext(Dispatchers.IO) {
             runCatching { Service.service?.currRecordsFile }
                 .onFailure { error ->
-                    LoggerX.w<MainViewModel>("[首页] 读取当前记录文件失败", tr = error)
+                    LoggerX.w(TAG, "[首页] 读取当前记录文件失败", tr = error)
                 }
                 .getOrNull()
         }
@@ -451,7 +453,7 @@ class MainViewModel : ViewModel() {
         }
 
         val generation = (++statisticsGeneration)
-        LoggerX.i<MainViewModel>(
+        LoggerX.i(TAG, 
             "[首页] 开始加载统计: generation=$generation mode=$mode recentFileCount=${request.sceneStatsRecentFileCount} intervalMs=${request.recordIntervalMs}"
         )
         _isLoadingStats.value = true
@@ -460,7 +462,7 @@ class MainViewModel : ViewModel() {
                 val dischargeDisplayPositive = getDischargeDisplayPositive(context)
 
                 withContext(Dispatchers.IO) {
-                    LoggerX.d<MainViewModel>("[首页] 统计前触发同步")
+                    LoggerX.d(TAG, "[首页] 统计前触发同步")
                     runCatching { SyncUtil.sync(context) }
                 }
 
@@ -486,7 +488,7 @@ class MainViewModel : ViewModel() {
                     pendingCurrentRecordsFile != null &&
                         serviceCurrentRecordsFile != null &&
                         pendingCurrentRecordsFile != serviceCurrentRecordsFile -> {
-                        LoggerX.i<MainViewModel>(
+                        LoggerX.i(TAG, 
                             "[首页] 目标分段已过期，改为服务端当前文件: ${serviceCurrentRecordsFile.name}"
                         )
                         serviceCurrentRecordsFile
@@ -520,19 +522,19 @@ class MainViewModel : ViewModel() {
 
                 when (currentRecordResult) {
                     is CurrentRecordDisplayLoadResult.Pending -> {
-                        LoggerX.d<MainViewModel>(
+                        LoggerX.d(TAG, 
                             "[首页] 新分段样本不足，进入等待状态: ${currentRecordResult.recordsFile.name}"
                         )
                     }
 
                     is CurrentRecordDisplayLoadResult.Missing -> {
-                        LoggerX.w<MainViewModel>(
+                        LoggerX.w(TAG, 
                             "[首页] 当前分段尚未同步到本地，进入等待状态: ${currentRecordResult.recordsFile.name}"
                         )
                     }
 
                     is CurrentRecordDisplayLoadResult.Failed -> {
-                        LoggerX.e<MainViewModel>(
+                        LoggerX.e(TAG, 
                             "[首页] 当前分段加载失败，终止等待状态: ${currentRecordResult.recordsFile.name}",
                             tr = currentRecordResult.error
                         )
@@ -598,13 +600,13 @@ class MainViewModel : ViewModel() {
                     }
                     _userMessage.value = currentRecordFailureMessage
 
-                    LoggerX.i<MainViewModel>(
+                    LoggerX.i(TAG, 
                         "[首页] 统计加载完成: generation=$generation currentRecord=${resolvedCurrentRecord?.name} pending=${nextPendingRecordsFile?.name}"
                     )
                 }
             } finally {
                 if (generation == statisticsGeneration) {
-                    LoggerX.d<MainViewModel>("[首页] 统计任务结束: generation=$generation")
+                    LoggerX.d(TAG, "[首页] 统计任务结束: generation=$generation")
                     _isLoadingStats.value = false
                 }
             }

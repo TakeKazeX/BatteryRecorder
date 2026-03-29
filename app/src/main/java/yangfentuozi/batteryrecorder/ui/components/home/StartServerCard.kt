@@ -18,7 +18,7 @@ import yangfentuozi.batteryrecorder.shared.util.LoggerX
 import yangfentuozi.batteryrecorder.startup.RootServerStarter
 import yangfentuozi.batteryrecorder.ui.theme.AppShape
 
-private object StartServerCard;
+private const val TAG = "StartServerCard"
 
 @Composable
 fun StartServerCard(
@@ -48,7 +48,7 @@ fun StartServerCard(
         Button(
             shape = AppShape.SplicedGroup.single,
             onClick = {
-                LoggerX.i<StartServerCard>("[启动请求] 来源=${RootServerStarter.Source.HOME_BUTTON}，用户点击启动按钮")
+                LoggerX.i(TAG, "[启动请求] 来源=${RootServerStarter.Source.HOME_BUTTON}，用户点击启动按钮")
                 Thread {
                     RootServerStarter.start(
                         context = context,

@@ -22,6 +22,8 @@ import yangfentuozi.batteryrecorder.shared.util.Handlers
 import yangfentuozi.batteryrecorder.shared.util.LoggerX
 import java.io.IOException
 
+private const val TAG = "Monitor"
+
 class Monitor(
     private val writer: PowerRecordWriter,
     private val sendBinder: (() -> Unit),
@@ -66,12 +68,12 @@ class Monitor(
             val oldValue = mAlwaysPollingScreenStatusEnabled
             if (value != oldValue) {
                 mAlwaysPollingScreenStatusEnabled = value
-                LoggerX.d<Monitor>("alwaysPollingScreenStatusEnabled: 配置变更, $oldValue -> $value")
+                LoggerX.d(TAG, "alwaysPollingScreenStatusEnabled: 配置变更, $oldValue -> $value")
                 if (value) {
-                    LoggerX.d<Monitor>("alwaysPollingScreenStatusEnabled: 切到轮询模式, 清空 DisplayCallback 引用")
+                    LoggerX.d(TAG, "alwaysPollingScreenStatusEnabled: 切到轮询模式, 清空 DisplayCallback 引用")
                     unregisterDisplayEventCallback()
                 } else {
-                    LoggerX.d<Monitor>("alwaysPollingScreenStatusEnabled: 切到回调模式, 注册 DisplayCallback")
+                    LoggerX.d(TAG, "alwaysPollingScreenStatusEnabled: 切到回调模式, 注册 DisplayCallback")
                     registerDisplayEventCallback()
                 }
             }
@@ -98,7 +100,7 @@ class Monitor(
                         val oldIsInteractive = isInteractive
                         val latestIsInteractive = iPowerManager.isInteractive
                         if (oldIsInteractive != latestIsInteractive) {
-                            LoggerX.d<Monitor>("@thread: 亮屏状态变化, $oldIsInteractive -> $latestIsInteractive")
+                            LoggerX.d(TAG, "@thread: 亮屏状态变化, $oldIsInteractive -> $latestIsInteractive")
                         }
                         isInteractive = latestIsInteractive
                     }
@@ -135,7 +137,7 @@ class Monitor(
                                     PowerRecordWriter.WriteResult.Rejected -> Unit
                                 }
                             } catch (e: RemoteException) {
-                                LoggerX.e<Monitor>(
+                                LoggerX.e(TAG, 
                                     "@callbackHandlerPost: 记录回调失败",
                                     tr = e
                                 )
@@ -144,26 +146,26 @@ class Monitor(
                         callbacks.finishBroadcast()
                     }
                 } catch (e: IOException) {
-                    LoggerX.e<Monitor>("@thread: 读取功耗数据失败", tr = e)
+                    LoggerX.e(TAG, "@thread: 读取功耗数据失败", tr = e)
                 }
 
                 if (isInteractive || screenOffRecord) {
                     if (paused) {
-                        LoggerX.d<Monitor>("@thread: 恢复采样, isInteractive=$isInteractive screenOffRecord=$screenOffRecord")
+                        LoggerX.d(TAG, "@thread: 恢复采样, isInteractive=$isInteractive screenOffRecord=$screenOffRecord")
                     }
                     paused = false
                     lock.wait(recordIntervalMs)
                 } else {
                     paused = true
                     if (alwaysPollingScreenStatusEnabled) {
-                        LoggerX.d<Monitor>("@thread: 暂停采样, 等待轮询亮屏")
+                        LoggerX.d(TAG, "@thread: 暂停采样, 等待轮询亮屏")
 
                         while (!stopped && !screenOffRecord && !isInteractive && alwaysPollingScreenStatusEnabled) {
                             lock.wait(recordIntervalMs)
                             isInteractive = iPowerManager.isInteractive
                         }
                     } else {
-                        LoggerX.d<Monitor>("@thread: 暂停采样, 等待亮屏事件")
+                        LoggerX.d(TAG, "@thread: 暂停采样, 等待亮屏事件")
                         lock.wait()
                     }
                 }
@@ -173,13 +175,13 @@ class Monitor(
     }, "MonitorThread")
 
     fun start() {
-        LoggerX.d<Monitor>(
+        LoggerX.d(TAG, 
             "start: alwaysPollingScreenStatusEnabled=$alwaysPollingScreenStatusEnabled screenOffRecord=$screenOffRecord"
         )
         try {
             iActivityTaskManager.registerTaskStackListener(taskStackListener)
             if (!alwaysPollingScreenStatusEnabled) {
-                LoggerX.d<Monitor>("start: 分支命中, 注册 DisplayCallback")
+                LoggerX.d(TAG, "start: 分支命中, 注册 DisplayCallback")
                 registerDisplayEventCallback()
             }
         } catch (e: RemoteException) {
@@ -192,31 +194,31 @@ class Monitor(
             throw RuntimeException("start: 获取当前焦点任务信息失败", e)
         }
         isInteractive = iPowerManager.isInteractive
-        LoggerX.d<Monitor>("start: initial isInteractive=$isInteractive")
+        LoggerX.d(TAG, "start: initial isInteractive=$isInteractive")
         thread.start()
     }
 
     private fun registerDisplayEventCallback() {
         if (displayCallbackRegistered) {
-            LoggerX.v<Monitor>("registerDisplayEventCallback: 已注册, skip")
+            LoggerX.v(TAG, "registerDisplayEventCallback: 已注册, skip")
             return
         }
-        LoggerX.d<Monitor>("registerDisplayEventCallback: 注册 DisplayCallback")
+        LoggerX.d(TAG, "registerDisplayEventCallback: 注册 DisplayCallback")
         displayCallback = object : IDisplayManagerCallback.Stub() {
             @Keep
             override fun onDisplayEvent(displayId: Int, event: Int) {
                 if (alwaysPollingScreenStatusEnabled) {
-                    LoggerX.v<Monitor>("onDisplayEvent: 已忽略, 当前为轮询模式, displayId=$displayId event=$event")
+                    LoggerX.v(TAG, "onDisplayEvent: 已忽略, 当前为轮询模式, displayId=$displayId event=$event")
                     return
                 }
                 val oldIsInteractive = isInteractive
                 val latestIsInteractive = iPowerManager.isInteractive
                 isInteractive = latestIsInteractive
-                LoggerX.d<Monitor>(
+                LoggerX.d(TAG, 
                     "onDisplayEvent: displayId=$displayId event=$event interactive $oldIsInteractive -> $latestIsInteractive paused=$paused"
                 )
                 if (isInteractive && paused) {
-                    LoggerX.d<Monitor>("onDisplayEvent: 收到亮屏事件, 唤醒采样线程")
+                    LoggerX.d(TAG, "onDisplayEvent: 收到亮屏事件, 唤醒采样线程")
                     notifyLock()
                 }
             }
@@ -229,7 +231,7 @@ class Monitor(
      * 自实现注销屏幕事件回调，系统服务端检测进程退出自动处理
      */
     private fun unregisterDisplayEventCallback() {
-        LoggerX.v<Monitor>("unregisterDisplayEventCallback: 清空 DisplayCallback 引用")
+        LoggerX.v(TAG, "unregisterDisplayEventCallback: 清空 DisplayCallback 引用")
         displayCallback = null
         displayCallbackRegistered = false
     }
@@ -240,7 +242,7 @@ class Monitor(
         try {
             iActivityTaskManager.unregisterTaskStackListener(taskStackListener)
         } catch (e: RemoteException) {
-            LoggerX.e<Monitor>("stop: 注销任务栈监听失败", tr = e)
+            LoggerX.e(TAG, "stop: 注销任务栈监听失败", tr = e)
         }
     }
 
@@ -251,12 +253,12 @@ class Monitor(
     }
 
     fun registerRecordListener(callback: IRecordListener) {
-        LoggerX.v<Monitor>("registerRecordListener: 注册记录回调")
+        LoggerX.v(TAG, "registerRecordListener: 注册记录回调")
         callbacks.register(callback)
     }
 
     fun unregisterRecordListener(callback: IRecordListener) {
-        LoggerX.v<Monitor>("unregisterRecordListener: 注销记录回调")
+        LoggerX.v(TAG, "unregisterRecordListener: 注销记录回调")
         callbacks.unregister(callback)
     }
 
@@ -264,11 +266,11 @@ class Monitor(
         val componentName = taskInfo.topActivity ?: return
         val packageName = componentName.packageName
         if (packageName == Constants.APP_PACKAGE_NAME) {
-            LoggerX.d<Monitor>("onFocusedAppChanged: 焦点回到 App, 尝试重新发送 Binder")
+            LoggerX.d(TAG, "onFocusedAppChanged: 焦点回到 App, 尝试重新发送 Binder")
             sendBinder()
         }
         if (currForegroundApp != packageName) {
-            LoggerX.d<Monitor>("onFocusedAppChanged: 应用切换, $currForegroundApp -> $packageName")
+            LoggerX.d(TAG, "onFocusedAppChanged: 应用切换, $currForegroundApp -> $packageName")
         }
         currForegroundApp = packageName
     }

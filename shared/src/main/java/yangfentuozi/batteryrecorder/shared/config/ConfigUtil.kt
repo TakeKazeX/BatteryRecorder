@@ -13,10 +13,12 @@ import java.io.FileInputStream
 import java.io.FileNotFoundException
 import java.io.IOException
 
+private const val TAG = "ConfigUtil"
+
 object ConfigUtil {
     fun getConfigByContentProvider(): Config? {
         return try {
-            LoggerX.i<ConfigUtil>("getConfigByContentProvider: 通过 ContentProvider 请求配置")
+            LoggerX.i(TAG, "getConfigByContentProvider: 通过 ContentProvider 请求配置")
             val reply = ActivityManagerCompat.contentProviderCall(
                 "yangfentuozi.batteryrecorder.configProvider",
                 "requestConfig",
@@ -33,27 +35,27 @@ object ConfigUtil {
             }
             if (config == null) throw NullPointerException("config is null")
             val coerced = coerceConfigValue(config)
-            LoggerX.d<ConfigUtil>(
+            LoggerX.d(TAG, 
                 "getConfigByContentProvider: 配置已解析, intervalMs=${coerced.recordIntervalMs} batchSize=${coerced.batchSize} writeLatencyMs=${coerced.writeLatencyMs} screenOffRecord=${coerced.screenOffRecordEnabled} polling=${coerced.alwaysPollingScreenStatusEnabled} logLevel=${coerced.logLevel}"
             )
             coerced
         } catch (e: RemoteException) {
-            LoggerX.e<ConfigUtil>("getConfigByContentProvider: 请求配置失败", tr = e)
+            LoggerX.e(TAG, "getConfigByContentProvider: 请求配置失败", tr = e)
             null
         } catch (e: NullPointerException) {
-            LoggerX.e<ConfigUtil>("getConfigByContentProvider: 请求配置失败", tr = e)
+            LoggerX.e(TAG, "getConfigByContentProvider: 请求配置失败", tr = e)
             null
         }
     }
 
     fun getConfigByReading(configFile: File): Config? {
         if (!configFile.exists()) {
-            LoggerX.e<ConfigUtil>("getConfigByReading: 配置文件不存在, path=${configFile.absolutePath}")
+            LoggerX.e(TAG, "getConfigByReading: 配置文件不存在, path=${configFile.absolutePath}")
             return null
         }
 
         return try {
-            LoggerX.i<ConfigUtil>("getConfigByReading: 开始读取配置文件, path=${configFile.absolutePath}")
+            LoggerX.i(TAG, "getConfigByReading: 开始读取配置文件, path=${configFile.absolutePath}")
             FileInputStream(configFile).use { fis ->
                 val parser = Xml.newPullParser()
                 parser.setInput(fis, "UTF-8")
@@ -114,19 +116,19 @@ object ConfigUtil {
                     logLevel = logLevel,
                     alwaysPollingScreenStatusEnabled = alwaysPollingScreenStatusEnabled
                 ))
-                LoggerX.d<ConfigUtil>(
+                LoggerX.d(TAG, 
                     "getConfigByReading: 配置已解析, intervalMs=${coerced.recordIntervalMs} batchSize=${coerced.batchSize} writeLatencyMs=${coerced.writeLatencyMs} screenOffRecord=${coerced.screenOffRecordEnabled} polling=${coerced.alwaysPollingScreenStatusEnabled} logLevel=${coerced.logLevel}"
                 )
                 coerced
             }
         } catch (e: FileNotFoundException) {
-            LoggerX.e<ConfigUtil>("getConfigByReading: 配置文件不存在", tr = e)
+            LoggerX.e(TAG, "getConfigByReading: 配置文件不存在", tr = e)
             null
         } catch (e: IOException) {
-            LoggerX.e<ConfigUtil>("getConfigByReading: 读取配置文件失败", tr = e)
+            LoggerX.e(TAG, "getConfigByReading: 读取配置文件失败", tr = e)
             null
         } catch (e: XmlPullParserException) {
-            LoggerX.e<ConfigUtil>("getConfigByReading: 解析配置文件失败", tr = e)
+            LoggerX.e(TAG, "getConfigByReading: 解析配置文件失败", tr = e)
             null
         }
     }
@@ -148,7 +150,7 @@ object ConfigUtil {
             logLevel = LoggerX.LogLevel.fromPriority(prefs.getInt(ConfigConstants.KEY_LOG_LEVEL, ConfigConstants.DEF_LOG_LEVEL.priority)),
             alwaysPollingScreenStatusEnabled = prefs.getBoolean(ConfigConstants.KEY_ALWAYS_POLLING_SCREEN_STATUS_ENABLED, ConfigConstants.DEF_ALWAYS_POLLING_SCREEN_STATUS_ENABLED)
         ))
-        LoggerX.d<ConfigUtil>(
+        LoggerX.d(TAG, 
             "getConfigBySharedPreferences: 配置已解析, intervalMs=${coerced.recordIntervalMs} batchSize=${coerced.batchSize} writeLatencyMs=${coerced.writeLatencyMs} screenOffRecord=${coerced.screenOffRecordEnabled} polling=${coerced.alwaysPollingScreenStatusEnabled} logLevel=${coerced.logLevel}"
         )
         return coerced
@@ -177,7 +179,7 @@ object ConfigUtil {
             )
         )
         if (coerced != config) {
-            LoggerX.v<ConfigUtil>("coerceConfigValue: 配置值已裁剪到合法范围")
+            LoggerX.v(TAG, "coerceConfigValue: 配置值已裁剪到合法范围")
         }
         return coerced
     }

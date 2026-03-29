@@ -17,6 +17,8 @@ import java.io.IOException
 import java.util.zip.ZipEntry
 import java.util.zip.ZipOutputStream
 
+private const val TAG = "HistoryRepository"
+
 data class HistoryRecord(
     val name: String,
     val type: BatteryStatus,
@@ -58,7 +60,7 @@ object HistoryRepository {
             ?.mapNotNull { file ->
                 val timestamp = recordFileTimestampOrNull(file)
                 if (timestamp == null) {
-                    LoggerX.w<HistoryRepository>("[记录] 跳过非法记录文件: ${file.absolutePath}")
+                    LoggerX.w(TAG, "[记录] 跳过非法记录文件: ${file.absolutePath}")
                     return@mapNotNull null
                 }
                 file to timestamp
@@ -105,7 +107,7 @@ object HistoryRepository {
         needCaching: Boolean
     ): HistoryRecord? {
         val cacheFile = getPowerStatsCacheFile(context.cacheDir, file.name)
-        LoggerX.v<HistoryRepository>(
+        LoggerX.v(TAG, 
             "[历史] 加载记录统计: file=${file.name} needCaching=$needCaching cache=${cacheFile.name}"
         )
         val stats = runCatching {
@@ -115,7 +117,7 @@ object HistoryRepository {
                 needCaching = needCaching
             )
         }.onFailure { error ->
-            LoggerX.e<HistoryRepository>("[历史] 加载记录统计失败: ${file.absolutePath}", tr = error)
+            LoggerX.e(TAG, "[历史] 加载记录统计失败: ${file.absolutePath}", tr = error)
         }.getOrNull() ?: return null
 
         return buildHistoryRecord(file, stats)
@@ -124,7 +126,7 @@ object HistoryRepository {
     /** 仅列出文件，按记录起始时间倒序，不加载 stats */
     fun listRecordFiles(context: Context, type: BatteryStatus): List<File> {
         val files = listSortedRecordFiles(dataDir(context, type))
-        LoggerX.d<HistoryRepository>("[历史] 列出记录文件: type=$type count=${files.size}")
+        LoggerX.d(TAG, "[历史] 列出记录文件: type=$type count=${files.size}")
         return files
     }
 
@@ -132,11 +134,11 @@ object HistoryRepository {
     fun loadRecords(context: Context, type: BatteryStatus): List<HistoryRecord> {
         val files = listSortedRecordFiles(dataDir(context, type))
         if (files.isEmpty()) {
-            LoggerX.d<HistoryRepository>("[历史] 无记录文件: type=$type")
+            LoggerX.d(TAG, "[历史] 无记录文件: type=$type")
             return emptyList()
         }
         val latestFile = files.firstOrNull()
-        LoggerX.d<HistoryRepository>("[历史] 加载记录列表: type=$type count=${files.size} latest=${latestFile?.name}")
+        LoggerX.d(TAG, "[历史] 加载记录列表: type=$type count=${files.size} latest=${latestFile?.name}")
 
         return files.mapNotNull { loadStats(context, it, it != latestFile) }
     }
@@ -187,7 +189,7 @@ object HistoryRepository {
         val serviceFile = runCatching { service.currRecordsFile }
             .getOrNull()
             ?.toFile(context)
-        LoggerX.d<HistoryRepository>("[历史] 加载当前记录: serviceFile=${serviceFile?.name}")
+        LoggerX.d(TAG, "[历史] 加载当前记录: serviceFile=${serviceFile?.name}")
         return serviceFile?.let { file ->
             loadStats(context, file, false)
         }
@@ -210,12 +212,12 @@ object HistoryRepository {
             )
         }.getOrElse { error ->
             if (error.isInsufficientSamplesError()) {
-                LoggerX.w<HistoryRepository>(
+                LoggerX.w(TAG, 
                     "[历史] 当前记录样本不足，等待更多采样: ${sourceFile.absolutePath}"
                 )
                 return CurrentRecordLoadResult.InsufficientSamples(recordsFile)
             }
-            LoggerX.e<HistoryRepository>("[历史] 加载当前记录失败: ${sourceFile.absolutePath}", tr = error)
+            LoggerX.e(TAG, "[历史] 加载当前记录失败: ${sourceFile.absolutePath}", tr = error)
             return CurrentRecordLoadResult.Failed(recordsFile, error)
         }
         return CurrentRecordLoadResult.Success(buildHistoryRecord(sourceFile, stats))
@@ -232,20 +234,20 @@ object HistoryRepository {
 
         val recordCount = files.size
         if (recordCount == 0) {
-            LoggerX.d<HistoryRepository>("[历史] 汇总为空: type=$type")
+            LoggerX.d(TAG, "[历史] 汇总为空: type=$type")
             return null
         }
 
         val latestFile = files.first()
         val sampleFiles = files.take(avgPowerLimit.coerceAtLeast(0))
         if (sampleFiles.isEmpty()) {
-            LoggerX.w<HistoryRepository>("[历史] 汇总样本为空: type=$type avgPowerLimit=$avgPowerLimit")
+            LoggerX.w(TAG, "[历史] 汇总样本为空: type=$type avgPowerLimit=$avgPowerLimit")
             return null
         }
 
         val records = sampleFiles.mapNotNull { loadStats(context, it, it != latestFile) }
         if (records.isEmpty()) {
-            LoggerX.w<HistoryRepository>("[历史] 汇总记录加载失败: type=$type sampleCount=${sampleFiles.size}")
+            LoggerX.w(TAG, "[历史] 汇总记录加载失败: type=$type sampleCount=${sampleFiles.size}")
             return null
         }
 
@@ -277,7 +279,7 @@ object HistoryRepository {
             totalScreenOnMs = totalScreenOnMs,
             totalScreenOffMs = totalScreenOffMs
         )
-        LoggerX.d<HistoryRepository>(
+        LoggerX.d(TAG, 
             "[历史] 汇总完成: type=$type recordCount=$recordCount durationMs=$totalDurationMs avgPower=$averagePower"
         )
         return summary
@@ -289,10 +291,10 @@ object HistoryRepository {
         if (runCatching { recordsFile.toFile(context)!!.delete() }.getOrDefault(false)) {
             // 同步删除缓存文件
             runCatching { getPowerStatsCacheFile(context.cacheDir, recordsFile.name).delete() }
-            LoggerX.i<HistoryRepository>("[历史] 删除记录成功: ${recordsFile.name}")
+            LoggerX.i(TAG, "[历史] 删除记录成功: ${recordsFile.name}")
             return true
         }
-        LoggerX.w<HistoryRepository>("[历史] 删除记录失败: ${recordsFile.name}")
+        LoggerX.w(TAG, "[历史] 删除记录失败: ${recordsFile.name}")
         return false
     }
 
@@ -314,7 +316,7 @@ object HistoryRepository {
                 input.copyTo(output)
             }
         }
-        LoggerX.i<HistoryRepository>("[历史] 导出记录成功: source=${recordsFile.name} destination=$destinationUri")
+        LoggerX.i(TAG, "[历史] 导出记录成功: source=${recordsFile.name} destination=$destinationUri")
     }
 
     /** 导出当前列表内的所有记录到 ZIP */
@@ -340,6 +342,6 @@ object HistoryRepository {
                 }
             }
         }
-        LoggerX.i<HistoryRepository>("[历史] 导出记录压缩包成功: count=${recordsFiles.size} destination=$destinationUri")
+        LoggerX.i(TAG, "[历史] 导出记录压缩包成功: count=${recordsFiles.size} destination=$destinationUri")
     }
 }

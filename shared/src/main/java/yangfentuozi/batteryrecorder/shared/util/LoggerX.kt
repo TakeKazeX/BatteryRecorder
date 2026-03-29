@@ -27,7 +27,7 @@ object LoggerX {
             writer = if (value == null) null else try {
                 LogWriter(value)
             } catch (e: IOException) {
-                Log.e(this::class.java.simpleName, "logDir: 初始化 LogWriter 失败", e)
+                Log.e("LoggerX", "logDir: 初始化 LogWriter 失败", e)
                 null
             }
         }
@@ -55,58 +55,64 @@ object LoggerX {
         return level.priority >= allowedPriority.priority
     }
 
-    inline fun <reified T> v(
+    fun v(
+        tag: String,
         msg: String?,
         vararg args: Any?,
         tr: Throwable? = null,
         notWrite: Boolean = false
     ) {
-        log(T::class.java.simpleName, LogLevel.Verbose, msg, args, tr = tr, notWrite = notWrite)
+        log(tag, LogLevel.Verbose, msg, *args, tr = tr, notWrite = notWrite)
     }
 
-    inline fun <reified T> d(
+    fun d(
+        tag: String,
         msg: String?,
         vararg args: Any?,
         tr: Throwable? = null,
         notWrite: Boolean = false
     ) {
-        log(T::class.java.simpleName, LogLevel.Debug, msg, args, tr = tr, notWrite = notWrite)
+        log(tag, LogLevel.Debug, msg, *args, tr = tr, notWrite = notWrite)
     }
 
-    inline fun <reified T> i(
+    fun i(
+        tag: String,
         msg: String?,
         vararg args: Any?,
         tr: Throwable? = null,
         notWrite: Boolean = false
     ) {
-        log(T::class.java.simpleName, LogLevel.Info, msg, args, tr = tr, notWrite = notWrite)
+        log(tag, LogLevel.Info, msg, *args, tr = tr, notWrite = notWrite)
     }
 
-    inline fun <reified T> w(
+    fun w(
+        tag: String,
         msg: String?,
         vararg args: Any?,
         tr: Throwable? = null,
         notWrite: Boolean = false
     ) {
-        log(T::class.java.simpleName, LogLevel.Warning, msg, args, tr = tr, notWrite = notWrite)
+        log(tag, LogLevel.Warning, msg, *args, tr = tr, notWrite = notWrite)
     }
 
-    inline fun <reified T> e(
+    fun e(
+        tag: String,
         msg: String?,
         vararg args: Any?,
         tr: Throwable? = null,
         notWrite: Boolean = false
     ) {
-        log(T::class.java.simpleName, LogLevel.Error, msg, args, tr = tr, notWrite = notWrite)
+        log(tag, LogLevel.Error, msg, *args, tr = tr, notWrite = notWrite)
     }
 
-    inline fun <reified T> a(
+    fun a(
+        tag: String,
         msg: String?,
         vararg args: Any?,
         tr: Throwable? = null,
         notWrite: Boolean = false
     ) {
-        log(T::class.java.simpleName, LogLevel.Assert, msg, args, tr = tr, notWrite = notWrite)
+        log(tag, LogLevel.Assert, msg, *args, tr = tr, notWrite = notWrite)
     }
 
     fun log(
@@ -186,7 +192,8 @@ object LoggerX {
                         }
                     }
                 } catch (e: Exception) {
-                    e<LogWriter>(
+                    e(
+                        "LogWriter",
                         "@cleanupRunnable: 清理过期日志文件失败",
                         tr = e,
                         notWrite = true
@@ -235,7 +242,7 @@ object LoggerX {
                         writer?.flushNow()
                     }
                 } catch (e: Exception) {
-                    e<LogWriter>("write: 写入日志失败", tr = e, notWrite = true)
+                    e("LogWriter", "write: 写入日志失败", tr = e, notWrite = true)
                 }
             }
         }
@@ -277,7 +284,7 @@ object LoggerX {
                     it.flushNow()
                     it.close()
                 } catch (e: Exception) {
-                    e<LogWriter>("closeWriter: 关闭 AdvancedWriter 失败", tr = e, notWrite = true)
+                    e("LogWriter", "closeWriter: 关闭 AdvancedWriter 失败", tr = e, notWrite = true)
                 } finally {
                     writer = null
                 }

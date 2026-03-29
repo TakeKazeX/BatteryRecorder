@@ -29,6 +29,8 @@ import yangfentuozi.batteryrecorder.utils.computePowerW
 import java.io.File
 import kotlin.math.roundToLong
 
+private const val TAG = "HistoryViewModel"
+
 data class RecordDetailChartUiState(
     // 原始展示点，保留完整时间精度，供原始曲线与辅助信息使用。
     val points: List<RecordDetailChartPoint> = emptyList(),
@@ -298,7 +300,7 @@ class HistoryViewModel : ViewModel() {
                 throw e
             } catch (e: Exception) {
                 if (detailToken != detailLoadToken) return@launch
-                LoggerX.e<HistoryViewModel>("[记录详情] 加载失败: ${recordsFile.name}", tr = e)
+                LoggerX.e(TAG, "[记录详情] 加载失败: ${recordsFile.name}", tr = e)
                 _userMessage.value = "加载记录详情失败"
                 clearRecordDetailState()
                 _isRecordChartLoading.value = false
@@ -346,7 +348,7 @@ class HistoryViewModel : ViewModel() {
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
-                LoggerX.e<HistoryViewModel>("[记录详情] 重算应用详情失败", tr = e)
+                LoggerX.e(TAG, "[记录详情] 重算应用详情失败", tr = e)
                 _recordAppDetailEntries.value = emptyList()
             }
         }
@@ -395,7 +397,7 @@ class HistoryViewModel : ViewModel() {
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
-                LoggerX.e<HistoryViewModel>("[删除] 记录删除失败: ${recordsFile.name}", tr = e)
+                LoggerX.e(TAG, "[删除] 记录删除失败: ${recordsFile.name}", tr = e)
                 _userMessage.value = "删除失败"
             } finally {
                 _isLoading.value = false
@@ -419,7 +421,7 @@ class HistoryViewModel : ViewModel() {
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
-                LoggerX.e<HistoryViewModel>("[导出] 单记录导出失败: ${recordsFile.name}", tr = e)
+                LoggerX.e(TAG, "[导出] 单记录导出失败: ${recordsFile.name}", tr = e)
                 _userMessage.value = "导出失败"
             } finally {
                 _isLoading.value = false
@@ -447,7 +449,7 @@ class HistoryViewModel : ViewModel() {
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
-                LoggerX.e<HistoryViewModel>("[导出] 批量导出失败: ${type.dataDirName}", tr = e)
+                LoggerX.e(TAG, "[导出] 批量导出失败: ${type.dataDirName}", tr = e)
                 _userMessage.value = "导出失败"
             } finally {
                 _isLoading.value = false
@@ -581,7 +583,7 @@ class HistoryViewModel : ViewModel() {
                 throw e
             } catch (e: Exception) {
                 if (detailToken != detailLoadToken || computeToken != chartComputeToken) return@launch
-                LoggerX.e<HistoryViewModel>("[记录详情] 图表状态重算失败", tr = e)
+                LoggerX.e(TAG, "[记录详情] 图表状态重算失败", tr = e)
                 _recordChartUiState.value = RecordDetailChartUiState()
             } finally {
                 if (detailToken == detailLoadToken && computeToken == chartComputeToken) {

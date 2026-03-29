@@ -10,13 +10,15 @@ import yangfentuozi.batteryrecorder.shared.config.ConfigConstants
 import yangfentuozi.batteryrecorder.shared.config.ConfigUtil
 import yangfentuozi.batteryrecorder.shared.util.LoggerX
 
+private const val TAG = "ConfigProvider"
+
 class ConfigProvider : ContentProvider() {
 
     override fun onCreate(): Boolean = true
 
     override fun call(method: String, arg: String?, extras: Bundle?): Bundle? {
         if (method == "requestConfig") {
-            LoggerX.i<ConfigProvider>("[配置] 收到 requestConfig 请求")
+            LoggerX.i(TAG, "[配置] 收到 requestConfig 请求")
 
             val prefs = requireContext().getSharedPreferences(
                 ConfigConstants.PREFS_NAME,

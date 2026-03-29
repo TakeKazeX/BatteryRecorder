@@ -11,6 +11,8 @@ import java.io.File
 import java.io.FileOutputStream
 import java.util.zip.ZipFile
 
+private const val TAG = "SysfsSampler"
+
 @Keep
 object SysfsSampler: Sampler {
 
@@ -44,16 +46,16 @@ object SysfsSampler: Sampler {
             }
             Os.chmod(libraryTmpPath, "400".toInt(8))
             System.load(libraryTmpPath)
-            LoggerX.i<SysfsSampler>("init: JNI 库加载成功, path=$libraryTmpPath")
+            LoggerX.i(TAG, "init: JNI 库加载成功, path=$libraryTmpPath")
             val initResult = nativeInit() == 1
             if (initResult) {
-                LoggerX.i<SysfsSampler>("init: nativeInit() 成功")
+                LoggerX.i(TAG, "init: nativeInit() 成功")
             } else {
-                LoggerX.w<SysfsSampler>("init: nativeInit() 返回失败, fallback DumpsysSampler")
+                LoggerX.w(TAG, "init: nativeInit() 返回失败, fallback DumpsysSampler")
             }
             return initResult
         } catch (e: Throwable) {
-            LoggerX.w<SysfsSampler>("init: 加载 JNI 失败, fallback DumpsysSampler", tr = e)
+            LoggerX.w(TAG, "init: 加载 JNI 失败, fallback DumpsysSampler", tr = e)
             return false
         }
     }
