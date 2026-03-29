@@ -30,17 +30,17 @@ BatteryRecorder 是一个 Android 电池功率记录 App。
 
 ## 技术栈
 
-| 项 | 值 |
-|---|---|
-| 语言 | Kotlin（主）, Java（hiddenapi）, C/C++（JNI） |
-| UI | Jetpack Compose + Material 3，无 XML Layout |
-| 架构 | MVVM（ViewModel + StateFlow + Compose） |
-| 构建 | Gradle 8.13 Kotlin DSL, AGP 8.13.2, Kotlin 2.3.0 |
-| JDK | 21（app/server/shared）, 11（hiddenapi） |
-| NDK | 29.0.14206865 |
-| CMake | 3.22.1 |
-| SDK | minSdk 31, targetSdk/compileSdk 36 |
-| 依赖管理 | Version Catalog（`gradle/libs.versions.toml`） |
+| 项     | 值                                                |
+|-------|--------------------------------------------------|
+| 语言    | Kotlin（主）, Java（hiddenapi）, C/C++（JNI）           |
+| UI    | Jetpack Compose + Material 3，无 XML Layout        |
+| 架构    | MVVM（ViewModel + StateFlow + Compose）            |
+| 构建    | Gradle 8.13 Kotlin DSL, AGP 8.13.2, Kotlin 2.3.0 |
+| JDK   | 21（app/server/shared）, 11（hiddenapi）             |
+| NDK   | 29.0.14206865                                    |
+| CMake | 3.22.1                                           |
+| SDK   | minSdk 31, targetSdk/compileSdk 36               |
+| 依赖管理  | Version Catalog（`gradle/libs.versions.toml`）     |
 
 ## 模块结构与依赖
 
@@ -333,56 +333,56 @@ shared/src/main/
 
 ## 关键路径索引
 
-| 功能 | 路径 |
-|---|---|
-| App 入口 Composable | `app/.../ui/BatteryRecorderApp.kt` |
-| 导航路由 | `app/.../ui/navigation/NavRoute.kt` |
-| 导航宿主与历史页共享 ViewModel | `app/.../ui/navigation/BatteryRecorderNavHost.kt` |
-| 首页 | `app/.../ui/screens/home/HomeScreen.kt` |
-| 首页当前记录卡片 | `app/.../ui/components/home/CurrentRecordCard.kt` |
-| 首页 Root 启动卡片 | `app/.../ui/components/home/StartServerCard.kt` |
-| 首页汇总卡片 | `app/.../ui/components/home/StatsCard.kt` |
-| 设置页 | `app/.../ui/screens/settings/SettingsScreen.kt` |
-| 历史列表 | `app/.../ui/screens/history/HistoryListScreen.kt` |
-| 记录详情页 | `app/.../ui/screens/history/RecordDetailScreen.kt` |
-| 预测详情页 | `app/.../ui/screens/prediction/PredictionDetailScreen.kt` |
-| 预测详情 ViewModel | `app/.../ui/viewmodel/PredictionDetailViewModel.kt` |
-| 首页预测/场景卡片 | `app/.../ui/components/home/PredictionCard.kt` |
-| 图表说明弹窗 | `app/.../ui/dialog/history/ChartGuideDialog.kt` |
-| ViewModel | `app/.../ui/viewmodel/` |
-| 记录详情图表状态 | `app/.../ui/viewmodel/HistoryViewModel.kt` |
-| 放电显示映射 | `app/.../ui/viewmodel/PowerDisplayMapper.kt` |
-| IPC Binder 持有 | `app/.../ipc/Service.kt` |
-| Binder 接收 Provider | `app/.../ipc/BinderProvider.kt` |
-| 配置 Provider | `app/.../ipc/ConfigProvider.kt` |
-| 开机自启动 | `app/.../startup/BootCompletedReceiver.kt`, `RootServerStarter.kt`, `BootAutoStartNotification.kt` |
-| 历史仓库 | `app/.../data/history/HistoryRepository.kt` |
-| 单记录应用统计 | `app/.../data/history/RecordAppStatsComputer.kt` |
-| 记录详情功耗统计 | `app/.../data/history/RecordDetailPowerStatsComputer.kt` |
-| 应用预测统计 | `app/.../data/history/AppStatsComputer.kt` |
-| 场景统计 | `app/.../data/history/SceneStatsComputer.kt` |
-| 放电扫描 | `app/.../data/history/DischargeRecordScanner.kt` |
-| 续航预测 | `app/.../data/history/BatteryPredictor.kt` |
-| 缓存命名与版本 | `app/.../data/history/HistoryCacheNaming.kt`, `HistoryCacheVersions.kt` |
-| 日志导出 | `app/.../data/log/LogRepository.kt` |
-| 图表组件 | `app/.../ui/components/charts/PowerCapacityChart.kt` |
-| 图标缓存 | `app/.../utils/AppIconMemoryCache.kt` |
-| 功率换算/格式化 | `app/.../utils/FormatUtil.kt` |
-| 更新检查工具（对象名 `UpdateUtils`） | `app/.../utils/UpdateUtil.kt` |
-| Server 进程入口 | `server/.../Main.kt` |
-| Server Binder 实现 | `server/.../Server.kt` |
-| 采样循环 | `server/.../recorder/Monitor.kt` |
-| 采样抽象 | `server/.../recorder/sampler/Sampler.kt` |
-| sysfs/JNI 采样 | `server/.../recorder/sampler/SysfsSampler.kt` |
-| dumpsys 回退采样 | `server/.../recorder/sampler/DumpsysSampler.kt` |
-| 写文件 | `server/.../writer/PowerRecordWriter.kt` |
-| JNI 原生代码 | `server/src/main/jni/power_reader.c`, `server/src/main/jni/dump_parser.cpp` |
-| AIDL 接口 | `server/src/main/aidl/` |
-| 共享配置 | `shared/.../config/` |
-| 共享数据模型与解析 | `shared/.../data/` |
-| 共享配置读取工具 | `shared/.../config/ConfigUtil.kt` |
-| 同步协议 | `shared/.../sync/` |
-| 日志工具 | `shared/.../util/LoggerX.kt` |
+| 功能                        | 路径                                                                                                 |
+|---------------------------|----------------------------------------------------------------------------------------------------|
+| App 入口 Composable         | `app/.../ui/BatteryRecorderApp.kt`                                                                 |
+| 导航路由                      | `app/.../ui/navigation/NavRoute.kt`                                                                |
+| 导航宿主与历史页共享 ViewModel      | `app/.../ui/navigation/BatteryRecorderNavHost.kt`                                                  |
+| 首页                        | `app/.../ui/screens/home/HomeScreen.kt`                                                            |
+| 首页当前记录卡片                  | `app/.../ui/components/home/CurrentRecordCard.kt`                                                  |
+| 首页 Root 启动卡片              | `app/.../ui/components/home/StartServerCard.kt`                                                    |
+| 首页汇总卡片                    | `app/.../ui/components/home/StatsCard.kt`                                                          |
+| 设置页                       | `app/.../ui/screens/settings/SettingsScreen.kt`                                                    |
+| 历史列表                      | `app/.../ui/screens/history/HistoryListScreen.kt`                                                  |
+| 记录详情页                     | `app/.../ui/screens/history/RecordDetailScreen.kt`                                                 |
+| 预测详情页                     | `app/.../ui/screens/prediction/PredictionDetailScreen.kt`                                          |
+| 预测详情 ViewModel            | `app/.../ui/viewmodel/PredictionDetailViewModel.kt`                                                |
+| 首页预测/场景卡片                 | `app/.../ui/components/home/PredictionCard.kt`                                                     |
+| 图表说明弹窗                    | `app/.../ui/dialog/history/ChartGuideDialog.kt`                                                    |
+| ViewModel                 | `app/.../ui/viewmodel/`                                                                            |
+| 记录详情图表状态                  | `app/.../ui/viewmodel/HistoryViewModel.kt`                                                         |
+| 放电显示映射                    | `app/.../ui/viewmodel/PowerDisplayMapper.kt`                                                       |
+| IPC Binder 持有             | `app/.../ipc/Service.kt`                                                                           |
+| Binder 接收 Provider        | `app/.../ipc/BinderProvider.kt`                                                                    |
+| 配置 Provider               | `app/.../ipc/ConfigProvider.kt`                                                                    |
+| 开机自启动                     | `app/.../startup/BootCompletedReceiver.kt`, `RootServerStarter.kt`, `BootAutoStartNotification.kt` |
+| 历史仓库                      | `app/.../data/history/HistoryRepository.kt`                                                        |
+| 单记录应用统计                   | `app/.../data/history/RecordAppStatsComputer.kt`                                                   |
+| 记录详情功耗统计                  | `app/.../data/history/RecordDetailPowerStatsComputer.kt`                                           |
+| 应用预测统计                    | `app/.../data/history/AppStatsComputer.kt`                                                         |
+| 场景统计                      | `app/.../data/history/SceneStatsComputer.kt`                                                       |
+| 放电扫描                      | `app/.../data/history/DischargeRecordScanner.kt`                                                   |
+| 续航预测                      | `app/.../data/history/BatteryPredictor.kt`                                                         |
+| 缓存命名与版本                   | `app/.../data/history/HistoryCacheNaming.kt`, `HistoryCacheVersions.kt`                            |
+| 日志导出                      | `app/.../data/log/LogRepository.kt`                                                                |
+| 图表组件                      | `app/.../ui/components/charts/PowerCapacityChart.kt`                                               |
+| 图标缓存                      | `app/.../utils/AppIconMemoryCache.kt`                                                              |
+| 功率换算/格式化                  | `app/.../utils/FormatUtil.kt`                                                                      |
+| 更新检查工具（对象名 `UpdateUtils`） | `app/.../utils/UpdateUtil.kt`                                                                      |
+| Server 进程入口               | `server/.../Main.kt`                                                                               |
+| Server Binder 实现          | `server/.../Server.kt`                                                                             |
+| 采样循环                      | `server/.../recorder/Monitor.kt`                                                                   |
+| 采样抽象                      | `server/.../recorder/sampler/Sampler.kt`                                                           |
+| sysfs/JNI 采样              | `server/.../recorder/sampler/SysfsSampler.kt`                                                      |
+| dumpsys 回退采样              | `server/.../recorder/sampler/DumpsysSampler.kt`                                                    |
+| 写文件                       | `server/.../writer/PowerRecordWriter.kt`                                                           |
+| JNI 原生代码                  | `server/src/main/jni/power_reader.c`, `server/src/main/jni/dump_parser.cpp`                        |
+| AIDL 接口                   | `server/src/main/aidl/`                                                                            |
+| 共享配置                      | `shared/.../config/`                                                                               |
+| 共享数据模型与解析                 | `shared/.../data/`                                                                                 |
+| 共享配置读取工具                  | `shared/.../config/ConfigUtil.kt`                                                                  |
+| 同步协议                      | `shared/.../sync/`                                                                                 |
+| 日志工具                      | `shared/.../util/LoggerX.kt`                                                                       |
 
 ## 架构约定
 
