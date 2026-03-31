@@ -5,7 +5,8 @@ import android.content.Context
 import android.content.Intent
 import android.provider.Settings
 import androidx.core.content.edit
-import yangfentuozi.batteryrecorder.shared.config.ConfigConstants
+import yangfentuozi.batteryrecorder.shared.config.SettingsConstants
+import yangfentuozi.batteryrecorder.shared.config.SharedSettings
 import yangfentuozi.batteryrecorder.shared.util.LoggerX
 
 private const val TAG = "BootCompletedReceiver"
@@ -21,13 +22,11 @@ class BootCompletedReceiver : BroadcastReceiver() {
                 try {
                     LoggerX.d(TAG, "[BOOT] 收到开机广播")
                     val prefs = appContext.getSharedPreferences(
-                        ConfigConstants.PREFS_NAME,
+                        SettingsConstants.PREFS_NAME,
                         Context.MODE_PRIVATE
                     )
-                    val autoStartEnabled = prefs.getBoolean(
-                        ConfigConstants.KEY_ROOT_BOOT_AUTO_START_ENABLED,
-                        ConfigConstants.DEF_ROOT_BOOT_AUTO_START_ENABLED
-                    )
+                    val autoStartEnabled =
+                        SharedSettings.readAppSettings(appContext).rootBootAutoStartEnabled
                     if (!autoStartEnabled) {
                         LoggerX.i(TAG, "[BOOT] 开机 ROOT 自启动未开启")
                         return@Thread
@@ -43,17 +42,15 @@ class BootCompletedReceiver : BroadcastReceiver() {
                         Int.MIN_VALUE
                     }
                     if (currentBootCount != Int.MIN_VALUE) {
-                        val lastBootCount = prefs.getInt(
-                            ConfigConstants.KEY_ROOT_BOOT_AUTO_START_LAST_BOOT_COUNT,
-                            ConfigConstants.DEF_ROOT_BOOT_AUTO_START_LAST_BOOT_COUNT
-                        )
+                        val lastBootCount =
+                            SettingsConstants.rootBootAutoStartLastBootCount.readFromSP(prefs)
                         if (lastBootCount == currentBootCount) {
                             LoggerX.i(TAG, "[BOOT] 命中 boot_count 去重，跳过自启动，boot_count=$currentBootCount")
                             return@Thread
                         }
                         prefs.edit {
-                            putInt(
-                                ConfigConstants.KEY_ROOT_BOOT_AUTO_START_LAST_BOOT_COUNT,
+                            SettingsConstants.rootBootAutoStartLastBootCount.writeToSP(
+                                this,
                                 currentBootCount
                             )
                         }

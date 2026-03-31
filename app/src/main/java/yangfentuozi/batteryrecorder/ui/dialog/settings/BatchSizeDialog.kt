@@ -1,7 +1,6 @@
 package yangfentuozi.batteryrecorder.ui.dialog.settings
 
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
@@ -12,8 +11,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.unit.dp
-import yangfentuozi.batteryrecorder.shared.config.ConfigConstants
+import yangfentuozi.batteryrecorder.shared.config.SettingsConstants
 import yangfentuozi.batteryrecorder.ui.theme.AppShape
 
 // 批量大小设置Dialog
@@ -24,6 +22,7 @@ fun BatchSizeDialog(
     onSave: (Int) -> Unit,
     onReset: () -> Unit
 ) {
+    val config = SettingsConstants.batchSize
     var value by remember { mutableStateOf(currentValue.toString()) }
     var isError by remember { mutableStateOf(false) }
 
@@ -36,28 +35,22 @@ fun BatchSizeDialog(
                 onValueChange = { newValue: String ->
                     value = newValue
                     isError =
-                        newValue.toIntOrNull() == null || newValue.toInt() < ConfigConstants.MIN_BATCH_SIZE || newValue.toInt() > ConfigConstants.MAX_BATCH_SIZE
+                        newValue.toIntOrNull() == null || newValue.toInt() < config.min || newValue.toInt() > config.max
                 },
                 label = { Text("批量大小") },
                 isError = isError,
                 supportingText = if (isError) {
-                    { Text("请输入 ${ConfigConstants.MIN_BATCH_SIZE}-${ConfigConstants.MAX_BATCH_SIZE} 之间的整数") }
+                    { Text("请输入 ${config.min}-${config.max} 之间的整数") }
                 } else null,
                 singleLine = true,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(
-                        top = 4.dp,
-                        start = 8.dp,
-                        end = 8.dp
-                    )
+                modifier = Modifier.fillMaxWidth()
             )
         },
         confirmButton = {
             TextButton(
                 onClick = {
                     value.toIntOrNull()?.let { intValue ->
-                        if (intValue in ConfigConstants.MIN_BATCH_SIZE..ConfigConstants.MAX_BATCH_SIZE) {
+                        if (intValue in config.min..config.max) {
                             onSave(intValue)
                         }
                     }

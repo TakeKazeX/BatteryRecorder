@@ -3,7 +3,8 @@ package yangfentuozi.batteryrecorder.data.history
 import android.content.Context
 import yangfentuozi.batteryrecorder.BuildConfig
 import yangfentuozi.batteryrecorder.shared.Constants
-import yangfentuozi.batteryrecorder.shared.config.ConfigConstants
+import yangfentuozi.batteryrecorder.shared.config.SettingsConstants
+import yangfentuozi.batteryrecorder.shared.config.dataclass.StatisticsSettings
 import yangfentuozi.batteryrecorder.shared.data.BatteryStatus
 import yangfentuozi.batteryrecorder.shared.util.LoggerX
 import java.io.File
@@ -101,10 +102,7 @@ object DischargeRecordScanner {
         context: Context,
         recentFileCount: Int
     ): List<File> {
-        val effectiveRecentFileCount = recentFileCount.coerceIn(
-            ConfigConstants.MIN_SCENE_STATS_RECENT_FILE_COUNT,
-            ConfigConstants.MAX_SCENE_STATS_RECENT_FILE_COUNT
-        )
+        val effectiveRecentFileCount = SettingsConstants.sceneStatsRecentFileCount.coerce(recentFileCount)
         val dataDir = File(
             File(context.dataDir, Constants.APP_POWER_DATA_PATH),
             BatteryStatus.Discharging.dataDirName
@@ -123,10 +121,14 @@ object DischargeRecordScanner {
 
     /**
      * 扫描最近的放电文件，并仅对通过异常值校验的文件回调结果。
+     *
+     * recordIntervalMs 用来推导允许的最大采样间隔，从而判断历史文件里的点间隔是否异常。
+     * 它来自 ServerSettings，而不是 StatisticsSettings；这里显式传入是为了保持统计配置边界干净。
      */
     fun scan(
         context: Context,
-        request: StatisticsRequest,
+        request: StatisticsSettings,
+        recordIntervalMs: Long,
         currentDischargeFileName: String? = null,
         onAcceptedFile: (AcceptedDischargeFile) -> Unit
     ): DischargeScanSummary? {
@@ -136,7 +138,7 @@ object DischargeRecordScanner {
             return null
         }
 
-        val maxGapMs = computeMaxGapMs(request.recordIntervalMs)
+        val maxGapMs = computeMaxGapMs(recordIntervalMs)
         val maxMultiplier = (request.predCurrentSessionWeightMaxX100 / 100.0).coerceIn(1.0, 5.0)
         val halfLifeMs = request.predCurrentSessionWeightHalfLifeMin
             .coerceIn(1L, 24 * 60L) * 60_000.0

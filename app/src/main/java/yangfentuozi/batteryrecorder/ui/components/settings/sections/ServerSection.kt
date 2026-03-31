@@ -16,6 +16,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
+import yangfentuozi.batteryrecorder.shared.config.SettingsConstants
 import yangfentuozi.batteryrecorder.startup.BootAutoStartNotification
 import yangfentuozi.batteryrecorder.ui.components.global.M3ESwitchWidget
 import yangfentuozi.batteryrecorder.ui.components.global.SplicedColumnGroup
@@ -43,7 +44,7 @@ fun ServerSection(
     ) { _ -> }
 
     SplicedColumnGroup(
-        title = "服务端",
+        title = "服务",
         modifier = Modifier.padding(horizontal = 16.dp)
     ) {
         item {
@@ -132,7 +133,7 @@ fun ServerSection(
                 showRecordIntervalDialog = false
             },
             onReset = {
-                actions.setRecordIntervalMs(1000)
+                actions.setRecordIntervalMs(SettingsConstants.recordIntervalMs.def)
                 showRecordIntervalDialog = false
             }
         )
@@ -149,7 +150,7 @@ fun ServerSection(
                 showWriteLatencyDialog = false
             },
             onReset = {
-                actions.setWriteLatencyMs(30000)
+                actions.setWriteLatencyMs(SettingsConstants.writeLatencyMs.def)
                 showWriteLatencyDialog = false
             }
         )
@@ -165,7 +166,7 @@ fun ServerSection(
                 showBatchSizeDialog = false
             },
             onReset = {
-                actions.setBatchSize(200)
+                actions.setBatchSize(SettingsConstants.batchSize.def)
                 showBatchSizeDialog = false
             }
         )
@@ -181,7 +182,7 @@ fun ServerSection(
                 showSegmentDurationDialog = false
             },
             onReset = {
-                actions.setSegmentDurationMin(1440)
+                actions.setSegmentDurationMin(SettingsConstants.segmentDurationMin.def)
                 showSegmentDurationDialog = false
             }
         )

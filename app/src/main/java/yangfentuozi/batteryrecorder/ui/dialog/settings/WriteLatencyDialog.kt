@@ -1,9 +1,12 @@
 package yangfentuozi.batteryrecorder.ui.dialog.settings
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.width
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Slider
@@ -16,8 +19,10 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import yangfentuozi.batteryrecorder.shared.config.ConfigConstants
+import yangfentuozi.batteryrecorder.shared.config.SettingsConstants
 import yangfentuozi.batteryrecorder.ui.theme.AppShape
 import kotlin.math.roundToInt
 
@@ -29,40 +34,49 @@ fun WriteLatencyDialog(
     onSave: (Long) -> Unit,
     onReset: () -> Unit
 ) {
-    val minS = ConfigConstants.MIN_WRITE_LATENCY_MS / 1000f
-    val maxS = ConfigConstants.MAX_WRITE_LATENCY_MS / 1000f
+    val config = SettingsConstants.writeLatencyMs
+    val minS = config.min / 1000f
+    val maxS = config.max / 1000f
     var value by remember {
-        val initial = (currentValueMs / 1000f).coerceIn(minS, maxS)
+        val initial = config.coerce(currentValueMs) / 1000f
         mutableFloatStateOf(initial)
     }
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("写入延迟") },
-        text = {
+        title = {
             Row(
-                Modifier
-                    .fillMaxWidth()
-                    .padding(
-                        top = 4.dp,
-                        start = 8.dp,
-                        end = 8.dp
-                    ),
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text("写入延迟")
+                Box(
+                    modifier = Modifier
+                        .clip(AppShape.small)
+                        .background(MaterialTheme.colorScheme.secondaryContainer)
+                        .padding(horizontal = 10.dp, vertical = 4.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = "${(value * 10).roundToInt() / 10.0} 秒",
+                        style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
+                        color = MaterialTheme.colorScheme.onSecondaryContainer
+                    )
+                }
+            }
+        },
+        text = {
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 Slider(
                     value = value,
                     onValueChange = { value = it },
                     valueRange = minS..maxS,
                     steps = 600,
-                    modifier = Modifier.weight(1F)
-                )
-                Text(
-                    modifier = Modifier
-                        .width(60.dp)
-                        .padding(start = 8.dp),
-                    text = "${(value * 10).roundToInt() / 10.0} 秒",
-                    style = MaterialTheme.typography.bodyMedium,
+                    modifier = Modifier.fillMaxWidth()
                 )
             }
         },

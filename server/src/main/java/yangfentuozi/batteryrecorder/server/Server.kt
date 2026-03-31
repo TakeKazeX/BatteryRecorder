@@ -15,9 +15,9 @@ import yangfentuozi.batteryrecorder.server.recorder.sampler.DumpsysSampler
 import yangfentuozi.batteryrecorder.server.recorder.sampler.SysfsSampler
 import yangfentuozi.batteryrecorder.server.writer.PowerRecordWriter
 import yangfentuozi.batteryrecorder.shared.Constants
-import yangfentuozi.batteryrecorder.shared.config.Config
-import yangfentuozi.batteryrecorder.shared.config.ConfigConstants
 import yangfentuozi.batteryrecorder.shared.config.ConfigUtil
+import yangfentuozi.batteryrecorder.shared.config.SettingsConstants
+import yangfentuozi.batteryrecorder.shared.config.dataclass.ServerSettings
 import yangfentuozi.batteryrecorder.shared.data.BatteryStatus.Charging
 import yangfentuozi.batteryrecorder.shared.data.BatteryStatus.Discharging
 import yangfentuozi.batteryrecorder.shared.data.RecordsFile
@@ -72,24 +72,25 @@ class Server internal constructor() : IService.Stub() {
         monitor.unregisterRecordListener(listener)
     }
 
-    override fun updateConfig(config: Config) {
+    override fun updateConfig(settings: ServerSettings) {
         Handlers.common.post {
-            LoggerX.d(TAG, 
-                "updateConfig: 应用配置, intervalMs=${config.recordIntervalMs} writeLatencyMs=${config.writeLatencyMs} batchSize=${config.batchSize} screenOffRecord=${config.screenOffRecordEnabled} segmentDurationMin=${config.segmentDurationMin} logLevel=${config.logLevel} polling=${config.alwaysPollingScreenStatusEnabled}"
+            LoggerX.d(
+                TAG,
+                "updateConfig: 应用配置, intervalMs=${settings.recordIntervalMs} writeLatencyMs=${settings.writeLatencyMs} batchSize=${settings.batchSize} screenOffRecord=${settings.screenOffRecordEnabled} segmentDurationMin=${settings.segmentDurationMin} logLevel=${settings.logLevel} polling=${settings.alwaysPollingScreenStatusEnabled}"
             )
-            LoggerX.maxHistoryDays = config.maxHistoryDays
-            LoggerX.logLevel = config.logLevel
+            LoggerX.maxHistoryDays = settings.maxHistoryDays
+            LoggerX.logLevel = settings.logLevel
 
-            unlockOPlusSampleTimeLimit(config.recordIntervalMs.coerceAtLeast(200))
+            unlockOPlusSampleTimeLimit(settings.recordIntervalMs.coerceAtLeast(200))
 
-            monitor.alwaysPollingScreenStatusEnabled = config.alwaysPollingScreenStatusEnabled
-            monitor.recordIntervalMs = config.recordIntervalMs
-            monitor.screenOffRecord = config.screenOffRecordEnabled
+            monitor.alwaysPollingScreenStatusEnabled = settings.alwaysPollingScreenStatusEnabled
+            monitor.recordIntervalMs = settings.recordIntervalMs
+            monitor.screenOffRecord = settings.screenOffRecordEnabled
             monitor.notifyLock()
 
-            writer.flushIntervalMs = config.writeLatencyMs
-            writer.batchSize = config.batchSize
-            writer.maxSegmentDurationMs = config.segmentDurationMin * 60 * 1000L
+            writer.flushIntervalMs = settings.writeLatencyMs
+            writer.batchSize = settings.batchSize
+            writer.maxSegmentDurationMs = settings.segmentDurationMin * 60 * 1000L
         }
     }
 
@@ -265,7 +266,7 @@ class Server internal constructor() : IService.Stub() {
 
         val appInfo = getAppInfo(Constants.APP_PACKAGE_NAME)
         appDataDir = File(appInfo.dataDir)
-        appConfigFile = File("${appInfo.dataDir}/shared_prefs/${ConfigConstants.PREFS_NAME}.xml")
+        appConfigFile = File("${appInfo.dataDir}/shared_prefs/${SettingsConstants.PREFS_NAME}.xml")
         appPowerDataDir = File("${appInfo.dataDir}/${Constants.APP_POWER_DATA_PATH}")
 
         val sampler = if (SysfsSampler.init(appInfo)) SysfsSampler else DumpsysSampler()
@@ -314,14 +315,14 @@ class Server internal constructor() : IService.Stub() {
         )
         LoggerX.d(TAG, "init: Monitor 初始化完成")
 
-        if (Os.getuid() == 0) {
+        val serverSettings = if (Os.getuid() == 0) {
             LoggerX.i(TAG, "init: 通过 SharedPreferences XML 读取配置, path=${appConfigFile.absolutePath}")
-            ConfigUtil.getConfigByReading(appConfigFile)
+            ConfigUtil.readServerSettingsByReading(appConfigFile)
         } else {
             LoggerX.i(TAG, "init: 通过 ConfigProvider 读取配置")
-            ConfigUtil.getConfigByContentProvider()
-        }?.let(::updateConfig)
-            ?: LoggerX.w(TAG, "init: 未读取到配置, 使用当前默认值")
+            ConfigUtil.getServerSettingsByContentProvider()
+        }
+        serverSettings?.let(::updateConfig) ?: LoggerX.w(TAG, "init: 未读取到配置, 使用当前默认值")
 
         monitor.start()
         LoggerX.i(TAG, "init: Monitor 已启动, 进入消息循环")

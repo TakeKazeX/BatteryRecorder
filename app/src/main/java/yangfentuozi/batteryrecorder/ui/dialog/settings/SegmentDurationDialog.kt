@@ -1,8 +1,8 @@
 package yangfentuozi.batteryrecorder.ui.dialog.settings
 
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
@@ -14,7 +14,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
-import yangfentuozi.batteryrecorder.shared.config.ConfigConstants
+import yangfentuozi.batteryrecorder.shared.config.SettingsConstants
 import yangfentuozi.batteryrecorder.ui.theme.AppShape
 
 
@@ -26,16 +26,20 @@ fun SegmentDurationDialog(
     onSave: (Long) -> Unit,
     onReset: () -> Unit
 ) {
+    val config = SettingsConstants.segmentDurationMin
     var value by remember { mutableStateOf(currentValueMin.toString()) }
     val parsedValue = value.toLongOrNull()
     val isError =
-        parsedValue == null || parsedValue < ConfigConstants.MIN_SEGMENT_DURATION_MIN || parsedValue > ConfigConstants.MAX_SEGMENT_DURATION_MIN
+        parsedValue == null || parsedValue < config.min || parsedValue > config.max
 
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text("记录分段时间") },
         text = {
-            Column {
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
                 OutlinedTextField(
                     value = value,
                     onValueChange = { value = it },
@@ -43,15 +47,13 @@ fun SegmentDurationDialog(
                     isError = isError,
                     supportingText = {
                         when {
-                            isError -> Text("请输入 ${ConfigConstants.MIN_SEGMENT_DURATION_MIN}-${ConfigConstants.MAX_SEGMENT_DURATION_MIN} 之间的整数")
+                            isError -> Text("请输入 ${config.min}-${config.max} 之间的整数")
                             parsedValue == 0L -> Text("设置为 0 表示不按时间自动分段")
                             else -> Text("$parsedValue 分钟 = ${"%.1f".format(parsedValue / 60.0)} 小时")
                         }
                     },
                     singleLine = true,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(top = 4.dp, start = 8.dp, end = 8.dp)
+                    modifier = Modifier.fillMaxWidth()
                 )
             }
         },

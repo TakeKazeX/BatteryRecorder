@@ -1,12 +1,11 @@
 package yangfentuozi.batteryrecorder.ui.screens.settings
 
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.add
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
@@ -23,7 +22,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.unit.dp
 import yangfentuozi.batteryrecorder.ipc.Service
-import yangfentuozi.batteryrecorder.ui.components.settings.sections.AppSection
 import yangfentuozi.batteryrecorder.ui.components.settings.sections.CalibrationSection
 import yangfentuozi.batteryrecorder.ui.components.settings.sections.LogSection
 import yangfentuozi.batteryrecorder.ui.components.settings.sections.PredictionSection
@@ -34,6 +32,7 @@ import yangfentuozi.batteryrecorder.ui.model.PredictionActions
 import yangfentuozi.batteryrecorder.ui.model.ServerActions
 import yangfentuozi.batteryrecorder.ui.model.SettingsActions
 import yangfentuozi.batteryrecorder.ui.model.SettingsUiProps
+import yangfentuozi.batteryrecorder.ui.model.SettingsUiState
 import yangfentuozi.batteryrecorder.ui.viewmodel.SettingsViewModel
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
@@ -42,7 +41,9 @@ fun SettingsScreen(
     settingsViewModel: SettingsViewModel,
     onNavigateBack: () -> Unit = {}
 ) {
-    val settingsState by settingsViewModel.settingsUiState.collectAsState()
+    val appSettings by settingsViewModel.appSettings.collectAsState()
+    val statisticsSettings by settingsViewModel.statisticsSettings.collectAsState()
+    val serverSettings by settingsViewModel.serverSettings.collectAsState()
     val serviceConnected = Service.service != null
     val actions = remember(settingsViewModel) {
         SettingsActions(
@@ -74,6 +75,33 @@ fun SettingsScreen(
             )
         )
     }
+    /**
+     * 这里搞一个合集是为了设置页传参方便
+     * 正常来说应该使用单独的
+     * */
+    val settingsState = remember(appSettings, statisticsSettings, serverSettings) {
+        SettingsUiState(
+            checkUpdateOnStartup = appSettings.checkUpdateOnStartup,
+            dualCellEnabled = appSettings.dualCellEnabled,
+            dischargeDisplayPositive = appSettings.dischargeDisplayPositive,
+            calibrationValue = appSettings.calibrationValue,
+            recordIntervalMs = serverSettings.recordIntervalMs,
+            writeLatencyMs = serverSettings.writeLatencyMs,
+            batchSize = serverSettings.batchSize,
+            recordScreenOffEnabled = serverSettings.screenOffRecordEnabled,
+            alwaysPollingScreenStatusEnabled = serverSettings.alwaysPollingScreenStatusEnabled,
+            segmentDurationMin = serverSettings.segmentDurationMin,
+            rootBootAutoStartEnabled = appSettings.rootBootAutoStartEnabled,
+            maxHistoryDays = serverSettings.maxHistoryDays,
+            logLevel = serverSettings.logLevel,
+            gamePackages = statisticsSettings.gamePackages,
+            gameBlacklist = statisticsSettings.gameBlacklist,
+            sceneStatsRecentFileCount = statisticsSettings.sceneStatsRecentFileCount,
+            predCurrentSessionWeightEnabled = statisticsSettings.predCurrentSessionWeightEnabled,
+            predCurrentSessionWeightMaxX100 = statisticsSettings.predCurrentSessionWeightMaxX100,
+            predCurrentSessionWeightHalfLifeMin = statisticsSettings.predCurrentSessionWeightHalfLifeMin
+        )
+    }
     val props = SettingsUiProps(
         state = settingsState,
         actions = actions,
@@ -100,26 +128,18 @@ fun SettingsScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding),
-            contentPadding = PaddingValues(top = 8.dp, bottom = 16.dp)
+            contentPadding = PaddingValues(top = 8.dp, bottom = 16.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             item {
-                AppSection(props = props)
-            }
-            item { Spacer(modifier = Modifier.size(16.dp)) }
-            item {
-                // 校准设置
                 CalibrationSection(props = props)
             }
-            item { Spacer(modifier = Modifier.size(16.dp)) }
             item {
-                // 服务器设置
                 ServerSection(props = props)
             }
-            item { Spacer(modifier = Modifier.size(16.dp)) }
             item {
                 LogSection(props = props)
             }
-            item { Spacer(modifier = Modifier.size(16.dp)) }
             item {
                 PredictionSection(props = props)
             }

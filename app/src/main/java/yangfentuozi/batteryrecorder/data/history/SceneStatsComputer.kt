@@ -1,6 +1,7 @@
 package yangfentuozi.batteryrecorder.data.history
 
 import android.content.Context
+import yangfentuozi.batteryrecorder.shared.config.dataclass.StatisticsSettings
 import yangfentuozi.batteryrecorder.shared.util.LoggerX
 import java.io.File
 import kotlin.math.sqrt
@@ -73,12 +74,17 @@ object SceneStatsComputer {
 
     /**
      * 聚合最近放电文件的场景统计，并生成展示/预测双口径结果。
+     *
+     * recordIntervalMs 虽然会影响统计时对“采样断档/有效区间”的判断，
+     * 但它的归属仍然是服务端采样配置，不属于 StatisticsSettings。
+     * 这里单独传入它，是为了让统计链显式依赖 server 输入，而不是把 server 配置混进统计设置模型。
      */
     fun compute(
         context: Context,
-        request: StatisticsRequest,
+        request: StatisticsSettings,
+        recordIntervalMs: Long,
         currentDischargeFileName: String? = null,
-    ): SceneComputeResult? {
+    ): SceneComputeResult {
         val files = DischargeRecordScanner.listRecentDischargeFiles(
             context = context,
             recentFileCount = request.sceneStatsRecentFileCount
@@ -98,6 +104,7 @@ object SceneStatsComputer {
         val cacheKey = buildCacheKey(
             files = files,
             request = request,
+            recordIntervalMs = recordIntervalMs,
             currentDischargeFileName = currentDischargeFileName
         )
         val cacheFile = getSceneStatsCacheFile(context.cacheDir, cacheKey)
@@ -144,6 +151,7 @@ object SceneStatsComputer {
         val scanSummary = DischargeRecordScanner.scan(
             context = context,
             request = request,
+            recordIntervalMs = recordIntervalMs,
             currentDischargeFileName = currentDischargeFileName
         ) { acceptedFile ->
             var fileRawSignedOffEnergy = 0.0
@@ -212,7 +220,7 @@ object SceneStatsComputer {
                 medianK = null,
                 kCV = null,
                 kEffectiveN = 0.0,
-                insufficientReason = buildScanFailureReason(scanSummary, request)
+                insufficientReason = buildScanFailureReason(scanSummary, recordIntervalMs)
             )
         }
 
@@ -296,7 +304,7 @@ object SceneStatsComputer {
 
     private fun buildScanFailureReason(
         summary: DischargeScanSummary?,
-        request: StatisticsRequest
+        recordIntervalMs: Long
     ): String {
         if (summary == null || summary.selectedFileCount <= 0) {
             return "最近没有放电记录"
@@ -307,7 +315,7 @@ object SceneStatsComputer {
             return "最近${selected}个放电文件均因掉电速率超过 50%/h 被异常校验过滤"
         }
         if (summary.rejectedNoValidDurationCount == selected) {
-            val maxGapMs = DischargeRecordScanner.computeMaxGapMs(request.recordIntervalMs)
+            val maxGapMs = DischargeRecordScanner.computeMaxGapMs(recordIntervalMs)
             return "最近${selected}个放电文件均无有效采样区间，请检查记录间隔设置是否与历史数据匹配（当前最大间隔 ${maxGapMs}ms）"
         }
         if (summary.rejectedNoSocDropCount == selected) {
@@ -323,12 +331,13 @@ object SceneStatsComputer {
 
     private fun buildCacheKey(
         files: List<File>,
-        request: StatisticsRequest,
+        request: StatisticsSettings,
+        recordIntervalMs: Long,
         currentDischargeFileName: String?,
     ): String {
         val gamePackages = request.gamePackages
         val recentFileCount = request.sceneStatsRecentFileCount
-        val maxGapMs = DischargeRecordScanner.computeMaxGapMs(request.recordIntervalMs)
+        val maxGapMs = DischargeRecordScanner.computeMaxGapMs(recordIntervalMs)
         val predCurrentSessionWeightEnabled = request.predCurrentSessionWeightEnabled
         val predCurrentSessionWeightMaxX100 = request.predCurrentSessionWeightMaxX100
         val predCurrentSessionWeightHalfLifeMin = request.predCurrentSessionWeightHalfLifeMin
