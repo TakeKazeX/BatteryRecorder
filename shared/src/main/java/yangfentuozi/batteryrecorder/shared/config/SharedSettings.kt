@@ -71,12 +71,10 @@ object SharedSettings {
             gamePackages = SettingsConstants.gamePackages.readFromSP(prefs),
             gameBlacklist = SettingsConstants.gameBlacklist.readFromSP(prefs),
             sceneStatsRecentFileCount = SettingsConstants.sceneStatsRecentFileCount.readFromSP(prefs),
-            predCurrentSessionWeightEnabled =
-                SettingsConstants.predCurrentSessionWeightEnabled.readFromSP(prefs),
-            predCurrentSessionWeightMaxX100 =
-                SettingsConstants.predCurrentSessionWeightMaxX100.readFromSP(prefs),
-            predCurrentSessionWeightHalfLifeMin =
-                SettingsConstants.predCurrentSessionWeightHalfLifeMin.readFromSP(prefs)
+            predWeightedAlgorithmEnabled =
+                SettingsConstants.predWeightedAlgorithmEnabled.readFromSP(prefs),
+            predWeightedAlgorithmAlphaMaxX100 =
+                SettingsConstants.predWeightedAlgorithmAlphaMaxX100.readFromSP(prefs)
         )
 
     /**
