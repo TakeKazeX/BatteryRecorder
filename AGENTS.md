@@ -115,7 +115,7 @@ Sampler -> SysfsSampler / DumpsysSampler -> Monitor -> PowerRecordWriter -> CSV
 - 页面级 `Scaffold` 统一通过 `ui/EdgeToEdgeInsets.kt` 中的 `batteryRecorderScaffoldInsets()` 只消费顶部与水平安全区
 - 底部导航手势区不再交给 `Scaffold` 一刀切处理，而是由页面内容层按需使用 `navigationBarBottomPadding()` 单独追加
 - 当前首页、设置页、历史列表页、记录详情页、预测详情页都已接入上述规则
-- `RecordDetailScreen` 的沉浸结构与其他页面不同：外层 `Box` 负责铺满沉浸背景，内层滚动 `Column` 只按内容高度展开，避免 `fillMaxSize()` 的滚动列把手势区表现成常驻大空白
+- 具体页面改动流程与检查清单已沉淀到项目 skill：`.agents/skills/compose-edge-to-edge-screen/`
 
 ### 记录详情链路
 
@@ -208,8 +208,8 @@ Sampler -> SysfsSampler / DumpsysSampler -> Monitor -> PowerRecordWriter -> CSV
 ### 缓存约定
 
 - `AppStatsComputer`、`SceneStatsComputer` 与记录详情 `power_stats` 共用 `HistoryCacheVersions.HISTORY_STATS_CACHE_VERSION`
-- 任一历史统计缓存格式或 key 组成变化时，统一提升该版本
 - 缓存命名统一通过 `HistoryCacheNaming.kt`
+- 具体缓存改动流程与检查清单已沉淀到项目 skill：`.agents/skills/history-stats-cache-change/`
 
 ## 目录索引
 
@@ -420,19 +420,14 @@ shared/src/main/
 - 应用图标请求只基于当前视口包名集合触发
 - 页面级沉浸规则是：`Scaffold` 只吃顶部/水平安全区，底部手势区由内容层自行处理
 - 页面外层 margin 当前统一按 16.dp 收敛；若看到 24.dp，需要先确认那是不是组件内部排版或图表绘制留白，而不是页面 margin
-- 充电历史页底部筛选栏需要单独处理导航栏底部 inset，不能直接套用普通滚动页的底部 padding 逻辑
 - ROOT 启动统一经过 `RootServerStarter.start(context, source)`
 - 当前设置系统按 `AppSettings`、`StatisticsSettings`、`ServerSettings` 分层；`SharedSettings.kt` 负责三类设置的 SharedPreferences 读写，以及 `logLevel` 编解码
 - 更新检测通道属于 `AppSettings`，当前字段为 `AppSettings.updateChannel`，使用 `UpdateChannel` 枚举持久化
 - 设置页“常规”分组当前同时包含“启动时检测更新”开关与“版本类型”菜单项；“版本类型”右侧显示当前通道，点击后弹出 `DropdownMenu`
 - 当前预测设置已收敛到 `StatisticsSettings.predWeightedAlgorithmEnabled` 与 `StatisticsSettings.predWeightedAlgorithmAlphaMaxX100`
 - `SharedSettings.readStatisticsSettings(...)` 当前只读取新 key，不再兼容旧的 `pred_current_session_weight_enabled`
-- `ConfigUtil.kt` 只负责 root/shell 场景下的设置来源适配；root 直接解析 SharedPreferences XML，shell 通过 `ConfigProvider` 读取 `ServerSettings`
 - `ConfigProvider` 与 `IService.aidl` 当前直接使用 `ServerSettings` 作为 IPC 边界对象，不再经过 `ServerConfigDto` / `ServerSettingsMapper`
-- Server 设置同步链路为：`SettingsConstants -> SharedSettings(ServerSettings) -> SettingsViewModel.updateServerSettings(...) -> Service.updateConfig(ServerSettings)`
-- Server 启动读取链路为：`SharedPreferences XML / ConfigProvider -> ConfigUtil -> ServerSettings -> Server.updateConfig(ServerSettings)`
-- 当前规则是：UI 限制非法输入，数值 setter 用 `SettingsConstants.xxx.coerce(...)` 做轻量收口，`writeServerSettings(...)` 纯写入，读取侧只保留缺字段默认值回退
-- 新增 Server 设置项时，最容易漏的是：`ServerSettings` 数据类、`SharedSettings` 读写、`SettingsViewModel` setter/下发、`ConfigProvider`、`ConfigUtil`、`IService.aidl`、`Server.updateConfig()`
+- 设置项新增与设置链路改动的完整流程、同步节点与检查清单已沉淀到项目 skill：`.agents/skills/add-setting-item/`
 
 ## 编码约定
 
@@ -466,6 +461,8 @@ shared/src/main/
 
 - 先确认目标链路的真实入口，不要依据过时文档猜测
 - 涉及“新增设置项”时，优先使用项目私有 skill：`.agents/skills/add-setting-item/`
+- 涉及历史统计缓存改动时，优先使用项目私有 skill：`.agents/skills/history-stats-cache-change/`
+- 涉及 Compose 页面沉浸或 inset 改动时，优先使用项目私有 skill：`.agents/skills/compose-edge-to-edge-screen/`
 - 优先搜索 `fast-context MCP`
 - 精确关键词搜索再用本地 grep/查找
 - 只修改与当前任务直接相关的文件
