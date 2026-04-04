@@ -80,6 +80,7 @@ class LocalNotificationUtil : NotificationUtil {
         }
     }
 
+    @Suppress("DEPRECATION")
     private fun buildNotification(info: NotificationInfo): Notification {
         val contentText = buildContentText(info)
         return Notification.Builder(context, CHANNEL_ID)
