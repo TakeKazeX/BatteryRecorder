@@ -4,11 +4,13 @@ import android.app.INotificationManager
 import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
+import android.content.pm.PackageManager
 import android.graphics.Color
 import android.graphics.drawable.Icon
 import android.os.RemoteException
 import android.os.ServiceManager
 import yangfentuozi.batteryrecorder.server.fakecontext.FakeContext
+import yangfentuozi.batteryrecorder.shared.Constants
 import yangfentuozi.batteryrecorder.shared.util.LoggerX
 import yangfentuozi.hiddenapi.compat.NotificationManagerCompat
 
@@ -81,7 +83,7 @@ class LocalNotificationUtil : NotificationUtil {
     private fun buildNotification(info: NotificationInfo): Notification {
         val contentText = buildContentText(info)
         return Notification.Builder(context, CHANNEL_ID)
-            .setSmallIcon(Icon.createWithResource("android", android.R.drawable.stat_notify_sync))
+            .setSmallIcon(cachedIcon)
             .setContentTitle(NOTIFICATION_TITLE)
             .setContentText(contentText)
             .setTicker(contentText)
@@ -100,6 +102,28 @@ class LocalNotificationUtil : NotificationUtil {
             }
     }
 
+    private val cachedIcon = buildSmallIcon()
+
+    private fun buildSmallIcon(): Icon {
+        val defaultIcon = Icon.createWithResource("android", android.R.drawable.stat_notify_sync)
+        return try {
+            val appInfo = context.packageManager.getApplicationInfo(Constants.APP_PACKAGE_NAME, 0)
+            val iconResId = appInfo.icon
+            if (iconResId == 0) {
+                LoggerX.w(TAG, "buildSmallIcon: 应用图标资源为空，回退系统图标")
+                defaultIcon
+            } else {
+                Icon.createWithResource(Constants.APP_PACKAGE_NAME, iconResId)
+            }
+        } catch (e: PackageManager.NameNotFoundException) {
+            LoggerX.w(TAG, "buildSmallIcon: 未找到应用包，回退系统图标", tr = e)
+            defaultIcon
+        } catch (e: Throwable) {
+            LoggerX.e(TAG, "buildSmallIcon: 读取应用图标失败，回退系统图标", tr = e)
+            defaultIcon
+        }
+    }
+
     private fun buildContentText(info: NotificationInfo): String {
         return "功耗 %.2f W | 温度 %.1f℃".format(info.power, 1.0 * info.temp / 10)
     }
@@ -115,4 +139,3 @@ class LocalNotificationUtil : NotificationUtil {
     }
 
 }
-
