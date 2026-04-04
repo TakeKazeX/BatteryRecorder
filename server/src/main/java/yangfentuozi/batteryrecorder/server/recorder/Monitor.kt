@@ -21,6 +21,9 @@ import yangfentuozi.batteryrecorder.shared.data.LineRecord
 import yangfentuozi.batteryrecorder.shared.util.Handlers
 import yangfentuozi.batteryrecorder.shared.util.LoggerX
 import java.io.IOException
+import java.util.concurrent.TimeUnit
+import java.util.concurrent.locks.ReentrantLock
+import kotlin.concurrent.withLock
 
 private const val TAG = "Monitor"
 
@@ -84,11 +87,12 @@ class Monitor(
 
     @Volatile
     private var stopped = false
-    private val lock = Object()
+    private val lock = ReentrantLock()
+    private val condition = lock.newCondition()
     private val callbackHandler: Handler
         get() = Handlers.getHandler("CallbackThread")
     private var thread = Thread({
-        synchronized(lock) {
+        lock.withLock {
             while (!stopped) {
                 try {
                     val timestamp = System.currentTimeMillis()
@@ -154,19 +158,19 @@ class Monitor(
                         LoggerX.d(TAG, "@thread: 恢复采样, isInteractive=$isInteractive screenOffRecord=$screenOffRecord")
                     }
                     paused = false
-                    lock.wait(recordIntervalMs)
+                    condition.await(recordIntervalMs, TimeUnit.MILLISECONDS)
                 } else {
                     paused = true
                     if (alwaysPollingScreenStatusEnabled) {
                         LoggerX.d(TAG, "@thread: 暂停采样, 等待轮询亮屏")
 
                         while (!stopped && !screenOffRecord && !isInteractive && alwaysPollingScreenStatusEnabled) {
-                            lock.wait(recordIntervalMs)
+                            condition.await(recordIntervalMs, TimeUnit.MILLISECONDS)
                             isInteractive = iPowerManager.isInteractive
                         }
                     } else {
                         LoggerX.d(TAG, "@thread: 暂停采样, 等待亮屏事件")
-                        lock.wait()
+                        condition.await()
                     }
                 }
             }
@@ -247,8 +251,8 @@ class Monitor(
     }
 
     fun notifyLock() {
-        synchronized(lock) {
-            lock.notifyAll()
+        lock.withLock {
+            condition.signalAll()
         }
     }
 

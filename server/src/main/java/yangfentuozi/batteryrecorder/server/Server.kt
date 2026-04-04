@@ -137,7 +137,8 @@ class Server internal constructor() : IService.Stub() {
                 val nowValue = readFd(forceValFd).trim().toLong()
                 val nowActive = readFd(forceActiveFd).trim().toInt() == 1
                 if (!nowActive || nowValue > intervalMs || nowValue == 0L) {
-                    LoggerX.i(TAG, 
+                    LoggerX.i(
+                        TAG,
                         "unlockOPlusSampleTimeLimit: 解锁欧加功率采样频率, target=${intervalMs}ms nowValue=${nowValue}ms nowActive=$nowActive"
                     )
                     writeFd(forceValFd, "$intervalMs\n")
@@ -242,6 +243,7 @@ class Server internal constructor() : IService.Stub() {
     init {
         LoggerX.i(TAG, "init: Server 初始化开始, uid=${Os.getuid()}")
         if (Looper.getMainLooper() == null) {
+            @Suppress("DEPRECATION")
             Looper.prepareMainLooper()
         }
 
@@ -304,7 +306,8 @@ class Server internal constructor() : IService.Stub() {
         } catch (e: IOException) {
             throw RuntimeException(e)
         }
-        LoggerX.i(TAG, 
+        LoggerX.i(
+            TAG,
             "init: Writer 初始化完成, targetDir=${if (Os.getuid() == 0) appPowerDataDir.absolutePath else shellPowerDataDir.absolutePath}"
         )
 
@@ -316,7 +319,10 @@ class Server internal constructor() : IService.Stub() {
         LoggerX.d(TAG, "init: Monitor 初始化完成")
 
         val serverSettings = if (Os.getuid() == 0) {
-            LoggerX.i(TAG, "init: 通过 SharedPreferences XML 读取配置, path=${appConfigFile.absolutePath}")
+            LoggerX.i(
+                TAG,
+                "init: 通过 SharedPreferences XML 读取配置, path=${appConfigFile.absolutePath}"
+            )
             ConfigUtil.readServerSettingsByReading(appConfigFile)
         } else {
             LoggerX.i(TAG, "init: 通过 ConfigProvider 读取配置")
@@ -349,7 +355,8 @@ class Server internal constructor() : IService.Stub() {
             try {
                 Os.chown(file.absolutePath, uid, uid)
             } catch (e: ErrnoException) {
-                LoggerX.e(TAG, 
+                LoggerX.e(
+                    TAG,
                     "changeOwner: 设置文件(夹)所有者和组失败, path=${file.absolutePath}",
                     tr = e
                 )

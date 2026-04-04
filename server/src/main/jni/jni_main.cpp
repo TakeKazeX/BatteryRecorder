@@ -2,7 +2,7 @@
 #include "power_reader.h"
 #include "dump_parser.h"
 
-JNIEXPORT jint JNICALL JNI_OnLoad(JavaVM* vm, void* reserved) {
+JNIEXPORT jint JNICALL JNI_OnLoad(JavaVM* vm, void* reserved __attribute__((unused))) {
     JNIEnv* env = nullptr;
     if (vm->GetEnv(reinterpret_cast<void**>(&env), JNI_VERSION_1_6) != JNI_OK) {
         return JNI_ERR;
