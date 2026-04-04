@@ -5,6 +5,7 @@ import android.content.Context
 import android.content.Intent
 import android.provider.Settings
 import androidx.core.content.edit
+import yangfentuozi.batteryrecorder.ipc.Service
 import yangfentuozi.batteryrecorder.shared.config.SettingsConstants
 import yangfentuozi.batteryrecorder.shared.config.SharedSettings
 import yangfentuozi.batteryrecorder.shared.util.LoggerX
@@ -55,6 +56,11 @@ class BootCompletedReceiver : BroadcastReceiver() {
                             )
                         }
                         LoggerX.d(TAG, "[BOOT] 已记录 boot_count 去重标记，boot_count=$currentBootCount")
+                    }
+
+                    if (Service.binder?.pingBinder() ?: false) {
+                        LoggerX.d(TAG, "[BOOT] Server 已启动，跳过本次拉起")
+                        return@Thread
                     }
 
                     LoggerX.i(TAG, "[BOOT] 满足自启动条件，准备拉起服务")
