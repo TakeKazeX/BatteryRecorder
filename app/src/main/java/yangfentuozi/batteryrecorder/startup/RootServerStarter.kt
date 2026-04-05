@@ -15,10 +15,9 @@ object RootServerStarter {
         context: Context,
         source: String
     ): Boolean {
-        val starterPath = "${context.applicationInfo.nativeLibraryDir}/libstarter.so --apk=${context.applicationInfo.sourceDir}"
-        val command = "\"$starterPath\""
+        val command = "\"${context.applicationInfo.nativeLibraryDir}/libstarter.so\" \"--apk=${context.applicationInfo.sourceDir}\""
         LoggerX.i(TAG, "[启动请求] 来源=$source，准备执行 ROOT 启动命令")
-        LoggerX.d(TAG, "[启动请求] 来源=$source，命令摘要=$starterPath")
+        LoggerX.d(TAG, "[启动请求] 来源=$source，命令摘要=$command")
         return try {
             Runtime.getRuntime().exec(
                 arrayOf(
