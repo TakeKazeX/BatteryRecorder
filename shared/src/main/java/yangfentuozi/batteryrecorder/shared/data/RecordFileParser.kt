@@ -3,9 +3,8 @@ package yangfentuozi.batteryrecorder.shared.data
 import yangfentuozi.batteryrecorder.shared.util.LoggerX
 import java.io.File
 
-private const val TAG = "RecordFileParser"
-
 object RecordFileParser {
+    private const val TAG = "RecordFileParser"
     private const val TIMESTAMP_LENGTH = 13
 
     fun parseToList(file: File): List<LineRecord> {

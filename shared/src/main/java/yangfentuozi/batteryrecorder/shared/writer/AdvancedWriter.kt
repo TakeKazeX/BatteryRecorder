@@ -5,9 +5,6 @@ import yangfentuozi.batteryrecorder.shared.util.LoggerX
 import java.io.IOException
 import java.io.OutputStream
 
-private const val TAG = "AdvancedWriter"
-private const val RETRY_TAG = "AutoRetryStringWriter"
-
 /**
  * 字符串批量写入缓冲：
  * - 达到 batchSize 时立即 flush
@@ -28,6 +25,9 @@ class AdvancedWriter(
     initialCapacity: Int = 4096,
     private val useAndroidLog: Boolean = false
 ) {
+
+    private val tag = "AdvancedWriter"
+
     private val autoRetryWriter = AutoRetryStringWriter()
 
     private val buffer = StringBuilder(initialCapacity)
@@ -78,7 +78,7 @@ class AdvancedWriter(
         try {
             outputStream.close()
         } catch (e: Exception) {
-            LoggerX.e(TAG, "close: outputStream 关闭失败", e, notWrite = useAndroidLog)
+            LoggerX.e(tag, "close: outputStream 关闭失败", e, notWrite = useAndroidLog)
         }
     }
 
@@ -89,7 +89,7 @@ class AdvancedWriter(
     private fun flushInternal(reason: String) {
         if (batchCount == 0) return
         LoggerX.d(
-            TAG,
+            tag,
             "flushInternal: $reason, 触发写入, batchCount=$batchCount",
             notWrite = useAndroidLog
         )
@@ -99,8 +99,11 @@ class AdvancedWriter(
     }
 
     private inner class AutoRetryStringWriter {
+        private val tag = "AutoRetryStringWriter"
+
         private val bufferLock = Any()
         private var retryCount = -1
+
         @Volatile
         private var closing = false
 
@@ -113,7 +116,7 @@ class AdvancedWriter(
                         outputStream.close()
                     } catch (e: IOException) {
                         LoggerX.e(
-                            RETRY_TAG,
+                            this@AutoRetryStringWriter.tag,
                             "@retryRunnable: 关闭 OutputStream 失败",
                             tr = e,
                             notWrite = useAndroidLog
@@ -124,7 +127,7 @@ class AdvancedWriter(
                         outputStream = reopenOutputStream()
                     } catch (e: IOException) {
                         LoggerX.e(
-                            RETRY_TAG,
+                            this@AutoRetryStringWriter.tag,
                             "@retryRunnable: 重新打开 OutputStream 失败, 多次重试失败, 强行终止",
                             tr = e,
                             notWrite = useAndroidLog
@@ -132,7 +135,7 @@ class AdvancedWriter(
                         throw RuntimeException()
                     }
                     LoggerX.i(
-                        RETRY_TAG,
+                        this@AutoRetryStringWriter.tag,
                         "@retryRunnable: OutputStream 已重建, 继续写入重试",
                         notWrite = useAndroidLog
                     )
@@ -146,7 +149,7 @@ class AdvancedWriter(
                     } catch (e: IOException) {
                         if (++retryCount > retryTimes) {
                             LoggerX.e(
-                                RETRY_TAG,
+                                this@AutoRetryStringWriter.tag,
                                 "@retryRunnable: 写入 OutputStream 失败, 多次重试失败, 强行终止",
                                 tr = e,
                                 notWrite = useAndroidLog
@@ -154,7 +157,7 @@ class AdvancedWriter(
                             throw RuntimeException()
                         }
                         LoggerX.w(
-                            RETRY_TAG,
+                            this@AutoRetryStringWriter.tag,
                             "@retryRunnable: 写入 OutputStream 失败, 准备重试: retryCount=$retryCount/$retryTimes",
                             tr = e,
                             notWrite = useAndroidLog
@@ -178,7 +181,7 @@ class AdvancedWriter(
             synchronized(bufferLock) {
                 buffer.append(stringBuilder)
                 LoggerX.v(
-                    RETRY_TAG,
+                    this@AutoRetryStringWriter.tag,
                     "write: 缓冲入队: appendedChars=${stringBuilder.length} pendingChars=${buffer.length}",
                     notWrite = useAndroidLog
                 )
@@ -221,7 +224,7 @@ class AdvancedWriter(
                                     outputStream.close()
                                 } catch (closeErr: IOException) {
                                     LoggerX.e(
-                                        RETRY_TAG,
+                                        this@AutoRetryStringWriter.tag,
                                         "drainBufferBlocking: 关闭 OutputStream 失败",
                                         tr = closeErr,
                                         notWrite = useAndroidLog
@@ -231,7 +234,7 @@ class AdvancedWriter(
                                     reopenOutputStream()
                                 } catch (reopenErr: IOException) {
                                     LoggerX.e(
-                                        RETRY_TAG,
+                                        this@AutoRetryStringWriter.tag,
                                         "drainBufferBlocking: 重新打开 OutputStream 失败, 多次重试失败, 强行终止",
                                         tr = reopenErr,
                                         notWrite = useAndroidLog
@@ -239,7 +242,7 @@ class AdvancedWriter(
                                     throw RuntimeException()
                                 }
                                 LoggerX.i(
-                                    RETRY_TAG,
+                                    this@AutoRetryStringWriter.tag,
                                     "drainBufferBlocking: OutputStream 已重建, 继续写入重试",
                                     notWrite = useAndroidLog
                                 )
@@ -247,7 +250,7 @@ class AdvancedWriter(
                                 continue
                             }
                             LoggerX.w(
-                                RETRY_TAG,
+                                this@AutoRetryStringWriter.tag,
                                 "drainBufferBlocking: 写入 OutputStream 失败, 准备重试: retryCount=$localRetryCount/$retryTimes",
                                 tr = e,
                                 notWrite = useAndroidLog

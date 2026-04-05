@@ -36,9 +36,9 @@ import java.nio.file.Files
 import java.util.Scanner
 import kotlin.system.exitProcess
 
-private const val TAG = "Server"
-
 class Server internal constructor() : IService.Stub() {
+    private val tag = "Server"
+
     private var monitor: Monitor
     private var writer: PowerRecordWriter
     private var bridge: ChildServerBridge? = null
@@ -78,7 +78,7 @@ class Server internal constructor() : IService.Stub() {
     override fun updateConfig(settings: ServerSettings) {
         Handlers.common.post {
             LoggerX.d(
-                TAG,
+                tag,
                 "updateConfig: 应用配置, notification=${settings.notificationEnabled} dualCell=${settings.dualCellEnabled} calibration=${settings.calibrationValue} intervalMs=${settings.recordIntervalMs} writeLatencyMs=${settings.writeLatencyMs} batchSize=${settings.batchSize} screenOffRecord=${settings.screenOffRecordEnabled} segmentDurationMin=${settings.segmentDurationMin} logLevel=${settings.logLevel} polling=${settings.alwaysPollingScreenStatusEnabled}"
             )
             LoggerX.maxHistoryDays = settings.maxHistoryDays
@@ -134,7 +134,7 @@ class Server internal constructor() : IService.Stub() {
                     false
                 }
             ) {
-                LoggerX.i(TAG, "unlockOPlusSampleTimeLimit: 欧加功率采样频率解限文件存在")
+                LoggerX.i(tag, "unlockOPlusSampleTimeLimit: 欧加功率采样频率解限文件存在")
 
                 Os.chmod(forceActive, perm)
                 Os.chmod(forceVal, perm)
@@ -146,7 +146,7 @@ class Server internal constructor() : IService.Stub() {
                 val nowActive = readFd(forceActiveFd).trim().toInt() == 1
                 if (!nowActive || nowValue > intervalMs || nowValue == 0L) {
                     LoggerX.i(
-                        TAG,
+                        tag,
                         "unlockOPlusSampleTimeLimit: 解锁欧加功率采样频率, target=${intervalMs}ms nowValue=${nowValue}ms nowActive=$nowActive"
                     )
                     writeFd(forceValFd, "$intervalMs\n")
@@ -154,7 +154,7 @@ class Server internal constructor() : IService.Stub() {
                 }
             }
         } catch (e: Exception) {
-            LoggerX.w(TAG, "unlockOPlusSampleTimeLimit: 解锁欧加功率采样频率限制失败", tr = e)
+            LoggerX.w(tag, "unlockOPlusSampleTimeLimit: 解锁欧加功率采样频率限制失败", tr = e)
         } finally {
             if (forceActiveFd != null) Os.close(forceActiveFd)
             if (forceValFd != null) Os.close(forceValFd)
@@ -164,14 +164,14 @@ class Server internal constructor() : IService.Stub() {
     override fun sync(): ParcelFileDescriptor? {
         writer.flushBufferBlocking()
         if (Os.getuid() == 0) {
-            LoggerX.d(TAG, "sync: root 模式不需要同步文件, return null")
+            LoggerX.d(tag, "sync: root 模式不需要同步文件, return null")
             return null
         }
 
         val pipe = ParcelFileDescriptor.createPipe()
         val readEnd = pipe[0]
         val writeEnd = pipe[1]
-        LoggerX.i(TAG, "sync: 开始同步 shell 记录目录, dir=${shellPowerDataDir.absolutePath}")
+        LoggerX.i(tag, "sync: 开始同步 shell 记录目录, dir=${shellPowerDataDir.absolutePath}")
 
         // 服务端在后台线程写入（发送）
         Thread {
@@ -190,7 +190,7 @@ class Server internal constructor() : IService.Stub() {
                     shellPowerDataDir
                 ) { file ->
                     sentCount += 1
-                    LoggerX.d(TAG, "@sendFileCallback: 文件已发送, file=${file.name}")
+                    LoggerX.d(tag, "@sendFileCallback: 文件已发送, file=${file.name}")
                     if ((currChargeDataPath == null || !Files.isSameFile(
                             file.toPath(),
                             currChargeDataPath
@@ -201,9 +201,9 @@ class Server internal constructor() : IService.Stub() {
                         ))
                     ) file.delete()
                 }
-                LoggerX.i(TAG, "sync: 同步完成, sentCount=$sentCount")
+                LoggerX.i(tag, "sync: 同步完成, sentCount=$sentCount")
             } catch (e: Exception) {
-                LoggerX.e(TAG, "sync: 后台同步失败", tr = e)
+                LoggerX.e(tag, "sync: 后台同步失败", tr = e)
                 try {
                     writeEnd.close()
                 } catch (_: Exception) {
@@ -221,7 +221,7 @@ class Server internal constructor() : IService.Stub() {
         try {
             writer.flushBuffer()
         } catch (e: IOException) {
-            LoggerX.e(TAG, "stopServiceImmediately: flushBuffer 失败", tr = e)
+            LoggerX.e(tag, "stopServiceImmediately: flushBuffer 失败", tr = e)
         }
         writer.close()
         bridge?.stop()
@@ -229,7 +229,7 @@ class Server internal constructor() : IService.Stub() {
     }
 
     private fun sendBinder() {
-        LoggerX.d(TAG, "sendBinder: 开始向 App 推送 Binder")
+        LoggerX.d(tag, "sendBinder: 开始向 App 推送 Binder")
         try {
             val reply = ActivityManagerCompat.contentProviderCall(
                 "yangfentuozi.batteryrecorder.binderProvider",
@@ -240,17 +240,17 @@ class Server internal constructor() : IService.Stub() {
                 }
             )
             if (reply == null) {
-                LoggerX.w(TAG, "sendBinder: Binder 推送失败, reply == null")
+                LoggerX.w(tag, "sendBinder: Binder 推送失败, reply == null")
             } else {
-                LoggerX.i(TAG, "sendBinder: Binder 推送成功")
+                LoggerX.i(tag, "sendBinder: Binder 推送成功")
             }
         } catch (e: RemoteException) {
-            LoggerX.w(TAG, "sendBinder: Binder 推送失败", tr = e)
+            LoggerX.w(tag, "sendBinder: Binder 推送失败", tr = e)
         }
     }
 
     init {
-        LoggerX.i(TAG, "init: Server 初始化开始, uid=${Os.getuid()}")
+        LoggerX.i(tag, "init: Server 初始化开始, uid=${Os.getuid()}")
         if (Looper.getMainLooper() == null) {
             @Suppress("DEPRECATION")
             Looper.prepareMainLooper()
@@ -287,7 +287,7 @@ class Server internal constructor() : IService.Stub() {
         appPowerDataDir = File("${appInfo.dataDir}/${Constants.APP_POWER_DATA_PATH}")
 
         val sampler = if (SysfsSampler.init(appInfo)) SysfsSampler else DumpsysSampler()
-        LoggerX.i(TAG, "init: 采样器选择完成, sampler=${sampler::class.java.simpleName}")
+        LoggerX.i(tag, "init: 采样器选择完成, sampler=${sampler::class.java.simpleName}")
 
         shellDataDir = File(Constants.SHELL_DATA_DIR_PATH)
         shellPowerDataDir =
@@ -297,7 +297,7 @@ class Server internal constructor() : IService.Stub() {
             shellPowerDataDir.let { shellPowerDataDir ->
                 appPowerDataDir.let { appPowerDataDir ->
                     if (shellPowerDataDir.exists() && shellPowerDataDir.isDirectory) {
-                        LoggerX.i(TAG, "init: root 模式迁移 shell 历史记录到 app 目录")
+                        LoggerX.i(tag, "init: root 模式迁移 shell 历史记录到 app 目录")
                         shellPowerDataDir.copyRecursively(
                             target = appPowerDataDir,
                             overwrite = true
@@ -324,7 +324,7 @@ class Server internal constructor() : IService.Stub() {
             throw RuntimeException(e)
         }
         LoggerX.i(
-            TAG,
+            tag,
             "init: Writer 初始化完成, targetDir=${if (Os.getuid() == 0) appPowerDataDir.absolutePath else shellPowerDataDir.absolutePath}"
         )
 
@@ -333,24 +333,24 @@ class Server internal constructor() : IService.Stub() {
             sampler,
             bridge
         )
-        LoggerX.d(TAG, "init: Monitor 初始化完成")
+        LoggerX.d(tag, "init: Monitor 初始化完成")
 
         val serverSettings = if (Os.getuid() == 0) {
             LoggerX.i(
-                TAG,
+                tag,
                 "init: 通过 SharedPreferences XML 读取配置, path=${appConfigFile.absolutePath}"
             )
             ConfigUtil.readServerSettingsByReading(appConfigFile)
         } else {
-            LoggerX.i(TAG, "init: 通过 ConfigProvider 读取配置")
+            LoggerX.i(tag, "init: 通过 ConfigProvider 读取配置")
             ConfigUtil.getServerSettingsByContentProvider()
         }
-        serverSettings?.let(::updateConfig) ?: LoggerX.w(TAG, "init: 未读取到配置, 使用当前默认值")
+        serverSettings?.let(::updateConfig) ?: LoggerX.w(tag, "init: 未读取到配置, 使用当前默认值")
 
         monitor.start()
-        LoggerX.i(TAG, "init: Monitor 已启动, 进入消息循环")
+        LoggerX.i(tag, "init: Monitor 已启动, 进入消息循环")
 
-        LoggerX.i(TAG, "init: 初始化 BinderSender")
+        LoggerX.i(tag, "init: 初始化 BinderSender")
         BinderSender(::sendBinder)
 
         Thread({

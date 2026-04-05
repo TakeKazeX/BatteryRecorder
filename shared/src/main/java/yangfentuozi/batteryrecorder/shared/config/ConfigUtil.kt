@@ -13,8 +13,6 @@ import java.io.FileInputStream
 import java.io.FileNotFoundException
 import java.io.IOException
 
-private const val TAG = "ConfigUtil"
-
 /**
  * ServerSettings 的来源适配层。
  *
@@ -23,6 +21,8 @@ private const val TAG = "ConfigUtil"
  * 2. shell 场景通过 ConfigProvider 取回 `ServerSettings`。
  */
 object ConfigUtil {
+    private const val TAG = "ConfigUtil"
+
     /** 来源适配层只负责读取配置来源并组装 ServerSettings。 */
     fun getServerSettingsByContentProvider(): ServerSettings? {
         return try {

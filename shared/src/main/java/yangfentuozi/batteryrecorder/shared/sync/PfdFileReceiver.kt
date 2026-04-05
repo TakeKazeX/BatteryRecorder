@@ -12,9 +12,8 @@ import java.io.IOException
 import java.io.InputStream
 import kotlin.io.path.Path
 
-private const val TAG = "PfdFileReceiver"
-
 object PfdFileReceiver {
+    private const val TAG = "PfdFileReceiver"
 
     fun receiveToDir(
         readPfd: ParcelFileDescriptor,

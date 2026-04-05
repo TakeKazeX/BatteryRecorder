@@ -11,9 +11,8 @@ import java.io.IOException
 import java.io.OutputStream
 import java.nio.file.Path
 
-private const val TAG = "PfdFileSender"
-
 object PfdFileSender {
+    private const val TAG = "PfdFileSender"
 
     fun sendFile(
         writePfd: ParcelFileDescriptor,

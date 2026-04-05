@@ -14,9 +14,10 @@ import yangfentuozi.batteryrecorder.shared.Constants
 import yangfentuozi.batteryrecorder.shared.util.LoggerX
 import yangfentuozi.hiddenapi.compat.NotificationManagerCompat
 
-private const val TAG = "LocalNotificationUtil"
-
 class LocalNotificationUtil : NotificationUtil {
+
+    private val tag = "LocalNotificationUtil"
+
     private val lock = Any()
     private val notificationManager: INotificationManager =
         INotificationManager.Stub.asInterface(ServiceManager.getService("notification"))
@@ -44,9 +45,9 @@ class LocalNotificationUtil : NotificationUtil {
                     }
                 )
                 channelCreated = true
-                LoggerX.i(TAG, "init: 通知渠道创建成功")
+                LoggerX.i(tag, "init: 通知渠道创建成功")
             } catch (e: RemoteException) {
-                LoggerX.e(TAG, "init: 通知渠道创建失败", tr = e)
+                LoggerX.e(tag, "init: 通知渠道创建失败", tr = e)
             }
         }
     }
@@ -63,7 +64,7 @@ class LocalNotificationUtil : NotificationUtil {
                     0
                 )
             } catch (e: RemoteException) {
-                LoggerX.e(TAG, "updateNotification: 发送通知失败", tr = e)
+                LoggerX.e(tag, "updateNotification: 发送通知失败", tr = e)
             }
         }
     }
@@ -104,16 +105,16 @@ class LocalNotificationUtil : NotificationUtil {
             val appInfo = context.packageManager.getApplicationInfo(Constants.APP_PACKAGE_NAME, 0)
             val iconResId = appInfo.icon
             if (iconResId == 0) {
-                LoggerX.w(TAG, "buildSmallIcon: 应用图标资源为空，回退系统图标")
+                LoggerX.w(tag, "buildSmallIcon: 应用图标资源为空，回退系统图标")
                 defaultIcon
             } else {
                 Icon.createWithResource(Constants.APP_PACKAGE_NAME, iconResId)
             }
         } catch (e: PackageManager.NameNotFoundException) {
-            LoggerX.w(TAG, "buildSmallIcon: 未找到应用包，回退系统图标", tr = e)
+            LoggerX.w(tag, "buildSmallIcon: 未找到应用包，回退系统图标", tr = e)
             defaultIcon
         } catch (e: Throwable) {
-            LoggerX.e(TAG, "buildSmallIcon: 读取应用图标失败，回退系统图标", tr = e)
+            LoggerX.e(tag, "buildSmallIcon: 读取应用图标失败，回退系统图标", tr = e)
             defaultIcon
         }
     }

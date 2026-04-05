@@ -9,10 +9,11 @@ import androidx.annotation.Keep
 import yangfentuozi.batteryrecorder.shared.data.BatteryStatus
 import yangfentuozi.batteryrecorder.shared.util.LoggerX
 
-private const val TAG = "DumpsysSampler"
-
 @Keep
 class DumpsysSampler : Sampler {
+
+    private val tag = "DumpsysSampler"
+
     private val batteryService = ServiceManager.getService("battery")
     private var registrar: IBatteryPropertiesRegistrar =
         IBatteryPropertiesRegistrar.Stub.asInterface(
@@ -24,7 +25,7 @@ class DumpsysSampler : Sampler {
     private external fun nativeParseBatteryDumpPfd(pfd: ParcelFileDescriptor): LongArray
 
     init {
-        LoggerX.d(TAG, "init: 启用 Dumpsys 回退采样器")
+        LoggerX.d(tag, "init: 启用 Dumpsys 回退采样器")
     }
 
     override fun sample(): Sampler.BatteryData {
@@ -38,7 +39,7 @@ class DumpsysSampler : Sampler {
             try {
                 batteryService.dump(writeSide.fileDescriptor, arrayOf())
             } catch (e: Exception) {
-                LoggerX.e(TAG, "@dumpThread: dump 失败", tr = e)
+                LoggerX.e(tag, "@dumpThread: dump 失败", tr = e)
             } finally {
                 writeSide.close()
             }
@@ -64,7 +65,7 @@ class DumpsysSampler : Sampler {
                 voltage = result.getOrNull(0) ?: 0
                 temp = (result.getOrNull(1) ?: 0).toInt()
             } catch (e: UnsatisfiedLinkError) {
-                LoggerX.d(TAG, "sample: JNI 未加载，回退 Kotlin 解析 dump 输出流", tr = e)
+                LoggerX.d(tag, "sample: JNI 未加载，回退 Kotlin 解析 dump 输出流", tr = e)
                 ParcelFileDescriptor.AutoCloseInputStream(readSide).bufferedReader().use { reader ->
                     var line: String?
                     while ((reader.readLine().also { line = it }) != null) {
@@ -88,13 +89,13 @@ class DumpsysSampler : Sampler {
                 readSideAutoClosed = true
             }
         } catch (e: Exception) {
-            LoggerX.e(TAG, "sample: 读取 dump 输出流失败", tr = e)
+            LoggerX.e(tag, "sample: 读取 dump 输出流失败", tr = e)
         } finally {
             if (!readSideAutoClosed) {
                 try {
                     readSide.close()
                 } catch (e: Exception) {
-                    LoggerX.w(TAG, "sample: 关闭 readSide 失败", tr = e)
+                    LoggerX.w(tag, "sample: 关闭 readSide 失败", tr = e)
                 }
             }
         }

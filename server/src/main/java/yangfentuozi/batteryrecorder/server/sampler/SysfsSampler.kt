@@ -11,10 +11,10 @@ import java.io.File
 import java.io.FileOutputStream
 import java.util.zip.ZipFile
 
-private const val TAG = "SysfsSampler"
-
 @Keep
 object SysfsSampler: Sampler {
+
+    private const val TAG = "SysfsSampler"
 
     @JvmStatic
     external fun nativeInit(): Int
