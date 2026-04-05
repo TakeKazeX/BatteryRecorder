@@ -39,6 +39,7 @@ import yangfentuozi.batteryrecorder.R
 import yangfentuozi.batteryrecorder.shared.data.BatteryStatus
 import yangfentuozi.batteryrecorder.ui.components.global.StatRow
 import yangfentuozi.batteryrecorder.ui.model.CurrentRecordUiState
+import yangfentuozi.batteryrecorder.utils.POWER_SCALE_DIVISOR
 import yangfentuozi.batteryrecorder.utils.computePowerW
 import yangfentuozi.batteryrecorder.utils.formatDateTime
 import yangfentuozi.batteryrecorder.utils.formatDurationHours
@@ -149,7 +150,7 @@ fun CurrentRecordCard(
             )
             val currentCapacityText = currentCapacityPercent?.let { "$it%" } ?: "--"
             val currentVoltageText = currentVoltageMv?.let {
-                String.format(Locale.getDefault(), "%.2f V", it / 1000.0)
+                String.format(Locale.getDefault(), "%.2f V", 1L * it * abs(calibrationValue) / (POWER_SCALE_DIVISOR / 1_000_000))
             } ?: "--"
 
             Row(
