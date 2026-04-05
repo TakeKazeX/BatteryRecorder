@@ -7,6 +7,10 @@ add_library(batteryrecorder SHARED
         dump_parser.cpp
 )
 
+add_executable(libstarter.so
+        starter.cpp
+)
+
 find_library(log-lib log)
 
 target_link_libraries(batteryrecorder

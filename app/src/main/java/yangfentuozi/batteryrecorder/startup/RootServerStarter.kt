@@ -15,10 +15,10 @@ object RootServerStarter {
         context: Context,
         source: String
     ): Boolean {
-        val command =
-            "CLASSPATH=$(pm path yangfentuozi.batteryrecorder | cut -d: -f2) setsid app_process /system/bin yangfentuozi.batteryrecorder.server.Main </dev/null >/dev/null 2>&1 &"
+        val starterPath = "${context.applicationInfo.nativeLibraryDir}/libstarter.so"
+        val command = "\"$starterPath\""
         LoggerX.i(TAG, "[启动请求] 来源=$source，准备执行 ROOT 启动命令")
-        LoggerX.d(TAG, "[启动请求] 来源=$source，命令摘要=setsid app_process /system/bin yangfentuozi.batteryrecorder.server.Main")
+        LoggerX.d(TAG, "[启动请求] 来源=$source，命令摘要=$starterPath")
         return try {
             Runtime.getRuntime().exec(
                 arrayOf(

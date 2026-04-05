@@ -1,6 +1,9 @@
 package yangfentuozi.batteryrecorder.server
 
 import android.ddm.DdmHandleAppName
+import android.system.ErrnoException
+import android.system.Os
+import android.system.OsConstants
 import androidx.annotation.Keep
 import yangfentuozi.batteryrecorder.server.notification.server.NotificationServer
 import yangfentuozi.batteryrecorder.shared.Constants
@@ -8,21 +11,37 @@ import yangfentuozi.batteryrecorder.shared.util.LoggerX
 import java.io.File
 import java.io.IOException
 
-private const val TAG = "Main"
 
 @Keep
 object Main {
+
+    private const val TAG = "Main"
+    private const val SERVER_PROCESS_NAME = "batteryrecorder_server"
+    private val SERVER_CGROUP_DIRS = listOf(
+        "/acct",
+        "/dev/cg2_bpf",
+        "/sys/fs/cgroup",
+        "/dev/memcg/apps"
+    )
 
     @Keep
     @JvmStatic
     fun main(args: Array<String>) {
         val isNotificationServer = args.size > 1 && args[0] == "--notificationServer"
-        DdmHandleAppName.setAppName("batteryrecorder_server", 0)
+        DdmHandleAppName.setAppName(SERVER_PROCESS_NAME, 0)
 
         // 配置 LoggerX
         LoggerX.logDirPath = "${Constants.SHELL_DATA_DIR_PATH}/${Constants.SHELL_LOG_DIR_PATH}"
         if (isNotificationServer) LoggerX.suffix = "-notificationServer"
-        LoggerX.d(TAG, "main: LoggerX 配置完成, dir=${LoggerX.logDirPath}, suffix=${LoggerX.suffix}")
+        LoggerX.d(
+            TAG,
+            "main: LoggerX 配置完成, dir=${LoggerX.logDirPath}, suffix=${LoggerX.suffix}"
+        )
+
+        if (!isNotificationServer) {
+            killOtherServersExceptSelf()
+            switchCgroupIfNeeded()
+        }
 
         // 设置OOM保活
         setSelfOomScoreAdj()
@@ -54,5 +73,58 @@ object Main {
         } catch (e: RuntimeException) {
             LoggerX.e(TAG, "setSelfOomScoreAdj: 设置 oom_score_adj 失败", tr = e)
         }
+    }
+
+    private fun killOtherServersExceptSelf() {
+        val selfPid = Os.getpid()
+        val procDir = File("/proc")
+        val entries = procDir.listFiles() ?: run {
+            LoggerX.w(TAG, "killOtherServersExceptSelf: /proc 不可读")
+            return
+        }
+
+        entries.forEach { entry ->
+            val pid = entry.name.toIntOrNull() ?: return@forEach
+            if (pid == selfPid) return@forEach
+
+            val cmdline = try {
+                val raw = File("/proc/$pid/cmdline").readBytes()
+                val end = raw.indexOf(0).let { if (it >= 0) it else raw.size }
+                if (end <= 0) null
+                else String(raw, 0, end)
+            } catch (_: Exception) {
+                null
+            } ?: return@forEach
+            if (cmdline != SERVER_PROCESS_NAME) return@forEach
+
+            try {
+                Os.kill(pid, OsConstants.SIGKILL)
+                LoggerX.i(TAG, "killOtherServersExceptSelf: 杀死旧 Server, pid=$pid")
+            } catch (e: ErrnoException) {
+                LoggerX.w(TAG, "killOtherServersExceptSelf: 杀死旧 Server 失败, pid=$pid", tr = e)
+            }
+        }
+    }
+
+    private fun switchCgroupIfNeeded() {
+        val selfPid = Os.getpid()
+        for (dir in SERVER_CGROUP_DIRS) {
+            val procsFile = File(dir, "cgroup.procs")
+            if (!procsFile.exists()) continue
+
+            try {
+                procsFile.appendText("$selfPid\n")
+                LoggerX.i(TAG, "switchCgroupIfNeeded: 切换 cgroup 成功, path=${procsFile.path}")
+                return
+            } catch (e: Exception) {
+                LoggerX.w(
+                    TAG,
+                    "switchCgroupIfNeeded: 切换 cgroup 失败, path=${procsFile.path}",
+                    tr = e
+                )
+            }
+        }
+
+        LoggerX.w(TAG, "switchCgroupIfNeeded: 未找到可用 cgroup")
     }
 }
