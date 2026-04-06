@@ -47,6 +47,7 @@ import yangfentuozi.batteryrecorder.ipc.Service
 import yangfentuozi.batteryrecorder.server.recorder.IRecordListener
 import yangfentuozi.batteryrecorder.shared.data.BatteryStatus
 import yangfentuozi.batteryrecorder.shared.data.RecordsFile
+import yangfentuozi.batteryrecorder.shared.util.LoggerX
 import yangfentuozi.batteryrecorder.ui.components.global.SplicedColumnGroup
 import yangfentuozi.batteryrecorder.ui.components.home.BatteryRecorderTopAppBar
 import yangfentuozi.batteryrecorder.ui.components.home.CurrentRecordCard
@@ -60,16 +61,32 @@ import yangfentuozi.batteryrecorder.ui.model.LiveRecordSample
 import yangfentuozi.batteryrecorder.ui.theme.AppShape
 import yangfentuozi.batteryrecorder.ui.viewmodel.MainViewModel
 import yangfentuozi.batteryrecorder.ui.viewmodel.SettingsViewModel
+import yangfentuozi.batteryrecorder.utils.POWER_SCALE_DIVISOR
 import yangfentuozi.batteryrecorder.utils.batteryRecorderScaffoldInsets
 import yangfentuozi.batteryrecorder.utils.navigationBarBottomPadding
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
+import java.util.Locale
+import kotlin.math.abs
 import kotlin.math.roundToInt
+
+private const val TAG = "HomeScreen"
 
 private data class HomeBatteryInfo(
     val capacityPercent: Int?,
     val voltageMv: Int?
 )
+
+/**
+ * 计算首页当前记录卡片展示使用的电压值。
+ *
+ * @param voltageMv 系统广播返回的毫伏值。
+ * @param calibrationValue 当前校准系数。
+ * @return 应展示的伏特值。
+ */
+private fun computeHomeDisplayVoltageV(voltageMv: Int, calibrationValue: Int): Double {
+    return 1L * voltageMv * abs(calibrationValue) / (POWER_SCALE_DIVISOR / 1_000_000)
+}
 
 /**
  * 从系统电池广播提取首页当前记录卡片需要的电量与电压。
@@ -176,6 +193,20 @@ fun HomeScreen(
     ObserveHomeBatteryInfo(context = context) { batteryInfo ->
         currentCapacityPercent = batteryInfo.capacityPercent
         currentVoltageMv = batteryInfo.voltageMv
+        val displayVoltageText = batteryInfo.voltageMv?.let { voltageMv ->
+            String.format(
+                Locale.getDefault(),
+                "%.2f",
+                computeHomeDisplayVoltageV(
+                    voltageMv = voltageMv,
+                    calibrationValue = calibrationValue
+                )
+            )
+        } ?: "null"
+        LoggerX.d(
+            TAG,
+            "[首页电压] rawMv=${batteryInfo.voltageMv} calibration=$calibrationValue displayV=$displayVoltageText"
+        )
     }
 
     val listener = remember {
