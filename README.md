@@ -48,6 +48,12 @@
 - [GitHub Releases](https://github.com/Itosang/BatteryRecorder/releases)
 - [GitHub Actions](https://github.com/Itosang/BatteryRecorder/actions)
 
+## 捐赠
+
+如果这个项目对你有帮助，欢迎通过下方收款码支持维护。收入会用于续费域名和日常维护支持。
+
+<img src="app/src/main/res/drawable-nodpi/donate_qr.jpg" alt="捐赠收款码" width="320" />
+
 ## 反馈
 
 - [QQ 群](https://qm.qq.com/q/6q5etoYAuc)

@@ -4,8 +4,9 @@ import android.content.Intent
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.CardGiftcard
+import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.MoreVert
-import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -32,6 +33,7 @@ import yangfentuozi.batteryrecorder.ui.theme.AppShape
 @Composable
 fun BatteryRecorderTopAppBar(
     onSettingsClick: () -> Unit = {},
+    onDonateClick: () -> Unit = {},
     onRefreshClick: () -> Unit = {},
     onExportLogsClick: () -> Unit = {},
     onStopServerClick: () -> Unit = {},
@@ -56,8 +58,8 @@ fun BatteryRecorderTopAppBar(
         },
         actions = {
             if (!showBackButton) {
-                IconButton(onClick = onRefreshClick) {
-                    Icon(Icons.Default.Refresh, contentDescription = stringResource(R.string.menu_refresh))
+                IconButton(onClick = onDonateClick) {
+                    Icon(Icons.Default.CardGiftcard, contentDescription = stringResource(R.string.menu_donate))
                 }
                 IconButton(onClick = onSettingsClick) {
                     Icon(Icons.Default.Settings, contentDescription = stringResource(R.string.menu_settings))
@@ -83,6 +85,13 @@ fun BatteryRecorderTopAppBar(
                     )
                 }
                 if (!showBackButton) {
+                    DropdownMenuItem(
+                        text = { Text(stringResource(R.string.menu_refresh_data)) },
+                        onClick = {
+                            showMenu = false
+                            onRefreshClick()
+                        }
+                    )
                     DropdownMenuItem(
                         text = { Text(stringResource(R.string.menu_export_logs)) },
                         onClick = {

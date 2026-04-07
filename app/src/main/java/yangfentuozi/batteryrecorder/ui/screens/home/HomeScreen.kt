@@ -57,6 +57,7 @@ import yangfentuozi.batteryrecorder.ui.components.home.StartServerCard
 import yangfentuozi.batteryrecorder.ui.components.home.StatsCard
 import yangfentuozi.batteryrecorder.ui.dialog.home.AboutDialog
 import yangfentuozi.batteryrecorder.ui.dialog.home.AdbGuideDialog
+import yangfentuozi.batteryrecorder.ui.dialog.home.DonateDialog
 import yangfentuozi.batteryrecorder.ui.model.LiveRecordSample
 import yangfentuozi.batteryrecorder.ui.theme.AppShape
 import yangfentuozi.batteryrecorder.ui.viewmodel.MainViewModel
@@ -148,6 +149,7 @@ fun HomeScreen(
     val showAboutDialog by viewModel.showAboutDialog.collectAsState()
     val userMessage by viewModel.userMessage.collectAsState()
     var showAdbGuideDialog by remember { mutableStateOf(false) }
+    var showDonateDialog by remember { mutableStateOf(false) }
     val chargeSummary by viewModel.chargeSummary.collectAsState()
     val dischargeSummary by viewModel.dischargeSummary.collectAsState()
     val currentRecordUiState by viewModel.currentRecordUiState.collectAsState()
@@ -295,6 +297,7 @@ fun HomeScreen(
             topBar = {
                 BatteryRecorderTopAppBar(
                     onSettingsClick = onNavigateToSettings,
+                    onDonateClick = { showDonateDialog = true },
                     onExportLogsClick = {
                         val fileName = buildString {
                             append("log_")
@@ -452,6 +455,12 @@ fun HomeScreen(
     if (showAboutDialog) {
         AboutDialog(
             onDismiss = viewModel::dismissAboutDialog
+        )
+    }
+
+    if (showDonateDialog) {
+        DonateDialog(
+            onDismiss = { showDonateDialog = false }
         )
     }
 
