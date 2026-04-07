@@ -1,5 +1,6 @@
 package yangfentuozi.batteryrecorder.ui.screens.history
 
+import android.content.Context
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -33,6 +34,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -50,6 +52,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import androidx.core.content.edit
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
@@ -68,8 +71,19 @@ import yangfentuozi.batteryrecorder.utils.formatPower
 import yangfentuozi.batteryrecorder.utils.navigationBarBottomPadding
 
 private const val NEAR_END_PRELOAD_THRESHOLD = 5
+private const val HISTORY_LIST_PREFS_NAME = "history_list"
+private const val KEY_HISTORY_LIST_LAYOUT_STYLE = "layout_style"
 private val CHARGE_CAPACITY_CHANGE_FILTERS = listOf(20, 40, 70)
 private val ChargeHistoryFilterChipShape = AppShape.medium
+
+private enum class HistoryListLayoutStyle {
+    Classic,
+    Emphasis;
+
+    fun toggled(): HistoryListLayoutStyle {
+        return if (this == Classic) Emphasis else Classic
+    }
+}
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
 @Composable
@@ -99,7 +113,14 @@ fun HistoryListScreen(
     // 列表滚动状态（用于计算是否接近列表底部）
     val listState = rememberLazyListState()
     val lifecycleOwner = LocalLifecycleOwner.current
+    val historyListPrefs = remember(context) {
+        context.getSharedPreferences(HISTORY_LIST_PREFS_NAME, Context.MODE_PRIVATE)
+    }
     var openRecordName by remember { mutableStateOf<String?>(null) }
+    // 历史列表样式只影响当前页面展示，因此使用页面本地偏好持久化，不进入全局业务设置。
+    var layoutStyle by remember(historyListPrefs) {
+        mutableStateOf(loadHistoryListLayoutStyle(historyListPrefs.getString(KEY_HISTORY_LIST_LAYOUT_STYLE, null)))
+    }
     // CreateDocument 回调异步返回，这里暂存要导出的记录，避免回调时丢失上下文
     var pendingExportFile by remember { mutableStateOf<RecordsFile?>(null) }
     val exportLauncher = rememberLauncherForActivityResult(
@@ -180,6 +201,22 @@ fun HistoryListScreen(
             TopAppBar(
                 title = { Text(title) },
                 actions = {
+                    TextButton(
+                        onClick = {
+                            layoutStyle = layoutStyle.toggled()
+                            historyListPrefs.edit {
+                                putString(KEY_HISTORY_LIST_LAYOUT_STYLE, layoutStyle.name)
+                            }
+                        }
+                    ) {
+                        Text(
+                            text = if (layoutStyle == HistoryListLayoutStyle.Classic) {
+                                "经典"
+                            } else {
+                                "强调"
+                            }
+                        )
+                    }
                     IconButton(
                         enabled = !isImportExporting,
                         onClick = {
@@ -320,15 +357,21 @@ fun HistoryListScreen(
                                 } else {
                                     stats.startCapacity - stats.endCapacity
                                 }
-                                Row(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .padding(16.dp),
-                                    horizontalArrangement = Arrangement.spacedBy(16.dp),
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
+                                val averageLabel = if (record.type == BatteryStatus.Charging) {
+                                    "平均功率"
+                                } else {
+                                    "平均功耗"
+                                }
+                                val averagePowerText = formatPower(
+                                    stats.averagePower,
+                                    dualCellEnabled,
+                                    calibrationValue
+                                )
+                                if (layoutStyle == HistoryListLayoutStyle.Classic) {
                                     Column(
-                                        modifier = Modifier.weight(1f)
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(16.dp)
                                     ) {
                                         Text(
                                             text = formatFullDateTime(stats.startTime),
@@ -344,24 +387,52 @@ fun HistoryListScreen(
                                             style = MaterialTheme.typography.bodyMedium,
                                             color = MaterialTheme.colorScheme.onSurfaceVariant
                                         )
-                                    }
-                                    Column(
-                                        horizontalAlignment = Alignment.End,
-                                    ) {
                                         Text(
-                                            text = formatPower(
-                                                stats.averagePower,
-                                                dualCellEnabled,
-                                                calibrationValue
-                                            ),
-                                            style = MaterialTheme.typography.bodyLarge
-                                        )
-                                        Spacer(modifier = Modifier.height(3.dp))
-                                        Text(
-                                            text = "平均功耗",
-                                            style = MaterialTheme.typography.labelSmall,
+                                            text = "$averageLabel $averagePowerText",
+                                            style = MaterialTheme.typography.bodyMedium,
                                             color = MaterialTheme.colorScheme.onSurfaceVariant
                                         )
+                                    }
+                                } else {
+                                    Row(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(16.dp),
+                                        horizontalArrangement = Arrangement.spacedBy(16.dp),
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Column(
+                                            modifier = Modifier.weight(1f)
+                                        ) {
+                                            Text(
+                                                text = formatFullDateTime(stats.startTime),
+                                                style = MaterialTheme.typography.titleSmall
+                                            )
+                                            Spacer(Modifier.height(6.dp))
+                                            Text(
+                                                text = stringResource(
+                                                    R.string.history_item_summary,
+                                                    formatDurationHours(durationMs),
+                                                    capacityChange
+                                                ),
+                                                style = MaterialTheme.typography.bodyMedium,
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                            )
+                                        }
+                                        Column(
+                                            horizontalAlignment = Alignment.End,
+                                        ) {
+                                            Text(
+                                                text = averagePowerText,
+                                                style = MaterialTheme.typography.bodyLarge
+                                            )
+                                            Spacer(modifier = Modifier.height(3.dp))
+                                            Text(
+                                                text = averageLabel,
+                                                style = MaterialTheme.typography.labelSmall,
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                            )
+                                        }
                                     }
                                 }
                             },
@@ -397,6 +468,17 @@ fun HistoryListScreen(
             }
         }
     }
+}
+
+/**
+ * 解析历史列表布局样式偏好。
+ *
+ * @param rawValue SharedPreferences 中保存的枚举名称；为空或非法时回退到经典布局。
+ * @return 可用于历史列表渲染的布局样式。
+ */
+private fun loadHistoryListLayoutStyle(rawValue: String?): HistoryListLayoutStyle {
+    return HistoryListLayoutStyle.entries.firstOrNull { it.name == rawValue }
+        ?: HistoryListLayoutStyle.Classic
 }
 
 private fun buildHistoryZipFileName(batteryStatus: BatteryStatus): String {

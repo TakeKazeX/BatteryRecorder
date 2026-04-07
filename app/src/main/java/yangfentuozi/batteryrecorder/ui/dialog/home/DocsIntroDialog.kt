@@ -20,7 +20,7 @@ import androidx.compose.ui.unit.dp
 import androidx.core.net.toUri
 import yangfentuozi.batteryrecorder.R
 
-private const val DOCS_URL = "https://battrec.itosang.com/BatteryRecorder"
+private const val DOCS_URL = "https://battrec.itosang.com"
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
