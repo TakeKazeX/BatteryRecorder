@@ -152,7 +152,6 @@ object LoggerX {
      *
      * 导出日志、抓取故障现场等对时效敏感的场景应显式调用，避免只拿到旧文件内容。
      */
-    @Throws(IOException::class)
     fun flushBlocking() {
         writer?.flushBlocking(FLUSH_BLOCKING_TIMEOUT_MS)
     }
@@ -275,7 +274,6 @@ object LoggerX {
         /**
          * 同步刷新当前活跃日志文件，确保主缓冲和重试缓冲都已写入磁盘。
          */
-        @Throws(IOException::class)
         fun flushBlocking(timeoutMs: Long) {
             if (closed) return
             if (Looper.myLooper() == handler.looper) {
@@ -304,7 +302,7 @@ object LoggerX {
                 }
             }
             if (!posted) {
-                throw IOException("flushBlocking: LoggingThread 已退出，无法投递刷新任务")
+                throw IllegalStateException("flushBlocking: LoggingThread 已退出，无法投递刷新任务")
             }
             try {
                 if (!latch.await(timeoutMs, TimeUnit.MILLISECONDS)) {

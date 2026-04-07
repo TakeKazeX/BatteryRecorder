@@ -239,7 +239,7 @@ class Server internal constructor() : IService.Stub() {
 
         try {
             LoggerX.flushBlocking()
-        } catch (e: IOException) {
+        } catch (e: Exception) {
             LoggerX.e(tag, "exportLogs: 刷新服务端日志失败", tr = e, notWrite = true)
             throw RemoteException("刷新服务端日志失败: ${e.message}").apply { initCause(e) }
         }
@@ -261,7 +261,7 @@ class Server internal constructor() : IService.Stub() {
         LoggerX.d(tag, "exportLogs: 导出管道创建完成")
         try {
             LoggerX.flushBlocking()
-        } catch (e: IOException) {
+        } catch (e: Exception) {
             runCatching { readEnd.close() }
             runCatching { writeEnd.close() }
             LoggerX.e(tag, "exportLogs: 刷新服务端日志失败", tr = e, notWrite = true)
