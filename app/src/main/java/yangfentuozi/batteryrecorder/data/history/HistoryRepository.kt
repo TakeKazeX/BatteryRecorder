@@ -39,6 +39,28 @@ data class HistorySummary(
     val totalScreenOffMs: Long
 )
 
+data class RecordCleanupRequest(
+    val keepCountPerType: Int? = null,
+    val maxDurationMinutes: Int? = null,
+    val maxCapacityChangePercent: Int? = null
+) {
+    val hasKeepCountRule: Boolean
+        get() = keepCountPerType != null
+
+    val hasConditionalRules: Boolean
+        get() = maxDurationMinutes != null || maxCapacityChangePercent != null
+
+    val hasAnyRule: Boolean
+        get() = hasKeepCountRule || hasConditionalRules
+}
+
+data class RecordCleanupResult(
+    val deletedCount: Int,
+    val deletedChargingCount: Int,
+    val deletedDischargingCount: Int,
+    val failedFiles: List<String>
+)
+
 sealed interface CurrentRecordLoadResult {
     data class Success(val record: HistoryRecord) : CurrentRecordLoadResult
     data class InsufficientSamples(val recordsFile: RecordsFile) : CurrentRecordLoadResult
@@ -46,9 +68,21 @@ sealed interface CurrentRecordLoadResult {
     data class Failed(val recordsFile: RecordsFile, val error: Throwable) : CurrentRecordLoadResult
 }
 
+private sealed interface RecordCleanupInspection {
+    data class Valid(val stats: RecordsStats) : RecordCleanupInspection
+    data object InvalidFileName : RecordCleanupInspection
+    data class InvalidStats(val error: Throwable) : RecordCleanupInspection
+}
+
+private data class RecordCleanupTarget(
+    val type: BatteryStatus,
+    val file: File
+)
+
 object HistoryRepository {
 
     private const val NOT_ENOUGH_VALID_SAMPLES_PREFIX = "Not enough valid samples after filtering:"
+    private val CLEANUP_TARGET_TYPES = listOf(BatteryStatus.Charging, BatteryStatus.Discharging)
 
     // 记录文件名由“起始时间戳.txt”组成；无法解析的文件必须显式告警并从记录链路中过滤。
     private fun recordFileTimestampOrNull(file: File): Long? =
@@ -298,6 +332,131 @@ object HistoryRepository {
         return false
     }
 
+    /**
+     * 按主页清理规则扫描并删除历史记录。
+     *
+     * @param context 应用上下文。
+     * @param request 用户确认后的清理规则。
+     * @param activeRecordsFile 当前正在写入的记录文件；该文件始终受保护，不参与删除。
+     * @return 返回本次清理的删除结果与失败文件列表。
+     */
+    fun cleanupRecords(
+        context: Context,
+        request: RecordCleanupRequest,
+        activeRecordsFile: RecordsFile? = null
+    ): RecordCleanupResult {
+        require(request.hasAnyRule) { "Record cleanup request has no rules" }
+        request.keepCountPerType?.let { require(it > 0) { "keepCountPerType must be > 0" } }
+        request.maxDurationMinutes?.let { require(it > 0) { "maxDurationMinutes must be > 0" } }
+        request.maxCapacityChangePercent?.let {
+            require(it in 1..100) { "maxCapacityChangePercent must be in 1..100" }
+        }
+
+        val protectedPath = activeRecordsFile?.toFile(context)?.absolutePath
+        val cleanupTargets = LinkedHashMap<String, RecordCleanupTarget>()
+
+        if (request.keepCountPerType != null) {
+            CLEANUP_TARGET_TYPES.forEach { type ->
+                val overflowFiles = listSortedRecordFiles(dataDir(context, type))
+                    .drop(request.keepCountPerType)
+                overflowFiles.forEach { file ->
+                    if (file.absolutePath == protectedPath) return@forEach
+                    val key = "${type.dataDirName}/${file.name}"
+                    if (cleanupTargets[key] == null) {
+                        cleanupTargets[key] = RecordCleanupTarget(type = type, file = file)
+                    }
+                }
+            }
+        }
+
+        if (request.hasConditionalRules) {
+            CLEANUP_TARGET_TYPES.forEach { type ->
+                listAllRecordFiles(context, type).forEach { file ->
+                    if (file.absolutePath == protectedPath) return@forEach
+                    when (val inspection = inspectRecordForCleanup(context, file)) {
+                        is RecordCleanupInspection.Valid -> {
+                            val stats = inspection.stats
+                            val durationMs = (stats.endTime - stats.startTime).coerceAtLeast(0L)
+                            val capacityChange = computeCapacityChange(type, stats)
+                            val durationMatched =
+                                request.maxDurationMinutes == null ||
+                                    durationMs < request.maxDurationMinutes * 60_000L
+                            val capacityMatched =
+                                request.maxCapacityChangePercent == null ||
+                                    capacityChange < request.maxCapacityChangePercent
+                            if (!durationMatched || !capacityMatched) {
+                                return@forEach
+                            }
+                            val key = "${type.dataDirName}/${file.name}"
+                            if (cleanupTargets[key] == null) {
+                                cleanupTargets[key] = RecordCleanupTarget(type = type, file = file)
+                            }
+                        }
+
+                        RecordCleanupInspection.InvalidFileName -> {
+                            LoggerX.w(
+                                TAG,
+                                "[记录清理] 文件名非法，跳过条件清理: ${file.absolutePath}"
+                            )
+                        }
+
+                        is RecordCleanupInspection.InvalidStats -> {
+                            LoggerX.w(
+                                TAG,
+                                "[记录清理] 记录解析失败，跳过条件清理: file=${file.absolutePath}",
+                                tr = inspection.error
+                            )
+                        }
+                    }
+                }
+            }
+        }
+
+        if (cleanupTargets.isEmpty()) {
+            LoggerX.i(TAG, "[记录清理] 没有命中任何待删除记录")
+            return RecordCleanupResult(
+                deletedCount = 0,
+                deletedChargingCount = 0,
+                deletedDischargingCount = 0,
+                failedFiles = emptyList()
+            )
+        }
+
+        var deletedCount = 0
+        var deletedChargingCount = 0
+        var deletedDischargingCount = 0
+        val failedFiles = mutableListOf<String>()
+
+        cleanupTargets.values.forEach { target ->
+            val deleted = deleteRecordFile(
+                context = context,
+                file = target.file,
+                type = target.type
+            )
+            if (!deleted) {
+                failedFiles += "${target.type.dataDirName}/${target.file.name}"
+                return@forEach
+            }
+            deletedCount += 1
+            when (target.type) {
+                BatteryStatus.Charging -> deletedChargingCount += 1
+                BatteryStatus.Discharging -> deletedDischargingCount += 1
+                else -> {}
+            }
+        }
+
+        LoggerX.i(
+            TAG,
+            "[记录清理] 执行完成: deleted=$deletedCount failed=${failedFiles.size}"
+        )
+        return RecordCleanupResult(
+            deletedCount = deletedCount,
+            deletedChargingCount = deletedChargingCount,
+            deletedDischargingCount = deletedDischargingCount,
+            failedFiles = failedFiles
+        )
+    }
+
     /** 导出单条记录到用户选择位置 */
     fun exportRecord(
         context: Context,
@@ -428,5 +587,85 @@ object HistoryRepository {
         if (validRecordCount == 0) {
             throw IOException("记录文件没有有效数据: ${file.name}")
         }
+    }
+
+    /**
+     * 列出指定类型目录下的所有物理记录文件。
+     *
+     * @param context 应用上下文。
+     * @param type 历史类型。
+     * @return 返回目录内全部文件，不做文件名与内容合法性过滤。
+     */
+    private fun listAllRecordFiles(context: Context, type: BatteryStatus): List<File> =
+        dataDir(context, type)
+            .listFiles()
+            ?.filter { it.isFile }
+            ?.toList()
+            ?: emptyList()
+
+    /**
+     * 解析单条记录文件，供条件清理判断使用。
+     *
+     * @param context 应用上下文。
+     * @param file 待检查的物理记录文件。
+     * @return 返回有效统计，或返回异常类型用于清理判定。
+     */
+    private fun inspectRecordForCleanup(
+        context: Context,
+        file: File
+    ): RecordCleanupInspection {
+        if (recordFileTimestampOrNull(file) == null) {
+            LoggerX.w(TAG, "[记录清理] 文件名非法，按异常记录处理: ${file.absolutePath}")
+            return RecordCleanupInspection.InvalidFileName
+        }
+        val cacheFile = getPowerStatsCacheFile(context.cacheDir, file.name)
+        return runCatching {
+            RecordsStats.getCachedStats(
+                cacheFile = cacheFile,
+                sourceFile = file,
+                needCaching = true
+            )
+        }.fold(
+            onSuccess = { stats -> RecordCleanupInspection.Valid(stats) },
+            onFailure = { error -> RecordCleanupInspection.InvalidStats(error) }
+        )
+    }
+
+    /**
+     * 根据充放电语义计算记录的电量变化百分比。
+     *
+     * @param type 记录所属类型。
+     * @param stats 已解析的记录统计。
+     * @return 返回用于阈值比较的正向电量变化值。
+     */
+    private fun computeCapacityChange(
+        type: BatteryStatus,
+        stats: RecordsStats
+    ): Int = when (type) {
+        BatteryStatus.Charging -> (stats.endCapacity - stats.startCapacity).coerceAtLeast(0)
+        BatteryStatus.Discharging -> (stats.startCapacity - stats.endCapacity).coerceAtLeast(0)
+        else -> 0
+    }
+
+    /**
+     * 删除物理记录文件，并同步清理对应统计缓存。
+     *
+     * @param context 应用上下文。
+     * @param file 已定位到数据目录内的记录文件。
+     * @param type 文件所属的充放电类型。
+     * @return 删除成功返回 true，否则返回 false。
+     */
+    private fun deleteRecordFile(
+        context: Context,
+        file: File,
+        type: BatteryStatus
+    ): Boolean {
+        if (runCatching { file.delete() }.getOrDefault(false)) {
+            runCatching { getPowerStatsCacheFile(context.cacheDir, file.name).delete() }
+            LoggerX.i(TAG, "[记录清理] 删除记录成功: type=${type.dataDirName} file=${file.name}")
+            return true
+        }
+        LoggerX.w(TAG, "[记录清理] 删除记录失败: type=${type.dataDirName} file=${file.name}")
+        return false
     }
 }

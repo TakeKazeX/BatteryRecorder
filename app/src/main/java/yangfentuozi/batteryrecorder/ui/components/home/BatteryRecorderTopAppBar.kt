@@ -35,9 +35,11 @@ fun BatteryRecorderTopAppBar(
     onSettingsClick: () -> Unit = {},
     onDonateClick: () -> Unit = {},
     onRefreshClick: () -> Unit = {},
+    onRecordCleanupClick: () -> Unit = {},
     onExportLogsClick: () -> Unit = {},
     onStopServerClick: () -> Unit = {},
     onAboutClick: () -> Unit = {},
+    recordCleanupEnabled: Boolean = true,
     showStopServer: Boolean = true,
     showBackButton: Boolean = false,
     onBackClick: () -> Unit = {}
@@ -91,6 +93,14 @@ fun BatteryRecorderTopAppBar(
                             showMenu = false
                             onRefreshClick()
                         }
+                    )
+                    DropdownMenuItem(
+                        text = { Text(stringResource(R.string.menu_record_cleanup)) },
+                        onClick = {
+                            showMenu = false
+                            onRecordCleanupClick()
+                        },
+                        enabled = recordCleanupEnabled
                     )
                     DropdownMenuItem(
                         text = { Text(stringResource(R.string.menu_export_logs)) },

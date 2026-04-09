@@ -20,6 +20,8 @@ import yangfentuozi.batteryrecorder.data.history.BatteryPredictor
 import yangfentuozi.batteryrecorder.data.history.CurrentRecordLoadResult
 import yangfentuozi.batteryrecorder.data.history.HistoryRecord
 import yangfentuozi.batteryrecorder.data.history.HistoryRepository
+import yangfentuozi.batteryrecorder.data.history.RecordCleanupRequest
+import yangfentuozi.batteryrecorder.data.history.RecordCleanupResult
 import yangfentuozi.batteryrecorder.data.history.HistorySummary
 import yangfentuozi.batteryrecorder.data.history.PredictionResult
 import yangfentuozi.batteryrecorder.data.history.SceneStats
@@ -73,6 +75,9 @@ class MainViewModel : ViewModel() {
 
     private val _userMessage = MutableStateFlow<String?>(null)
     val userMessage: StateFlow<String?> = _userMessage.asStateFlow()
+
+    private val _isCleaningRecords = MutableStateFlow(false)
+    val isCleaningRecords: StateFlow<Boolean> = _isCleaningRecords.asStateFlow()
 
     private val _chargeSummary = MutableStateFlow<HistorySummary?>(null)
     val chargeSummary: StateFlow<HistorySummary?> = _chargeSummary.asStateFlow()
@@ -195,6 +200,66 @@ class MainViewModel : ViewModel() {
             } catch (e: Exception) {
                 LoggerX.e(TAG, "exportLogs: 日志导出失败", tr = e)
                 _userMessage.value = appString(R.string.toast_export_failed)
+            }
+        }
+    }
+
+    /**
+     * 按主页确认后的规则执行记录清理，并在完成后刷新首页统计。
+     *
+     * @param context 应用上下文。
+     * @param request 用户确认后的清理规则。
+     * @param statisticsRequest 当前首页统计请求。
+     * @param recordIntervalMs 当前采样间隔；用于清理后刷新首页统计。
+     * @return 无返回值。
+     */
+    fun cleanupRecords(
+        context: Context,
+        request: RecordCleanupRequest,
+        statisticsRequest: StatisticsSettings,
+        recordIntervalMs: Long
+    ) {
+        if (_isCleaningRecords.value) {
+            LoggerX.v(TAG, "[记录清理] 清理任务已在进行，跳过重复请求")
+            return
+        }
+        viewModelScope.launch {
+            _isCleaningRecords.value = true
+            try {
+                val appContext = context.applicationContext
+                val activeRecordsFile = getServiceCurrentRecordsFile()
+                LoggerX.i(
+                    TAG,
+                    "[记录清理] 开始执行: keep=${request.keepCountPerType} duration=${request.maxDurationMinutes} capacity=${request.maxCapacityChangePercent} active=${activeRecordsFile?.name}"
+                )
+                val result = withContext(Dispatchers.IO) {
+                    HistoryRepository.cleanupRecords(
+                        context = appContext,
+                        request = request,
+                        activeRecordsFile = activeRecordsFile
+                    )
+                }
+                if (result.failedFiles.isNotEmpty()) {
+                    LoggerX.w(
+                        TAG,
+                        "[记录清理] 存在删除失败文件: ${result.failedFiles.joinToString()}"
+                    )
+                }
+                _userMessage.value = buildRecordCleanupMessage(result)
+                val refreshTarget = getServiceCurrentRecordsFile() ?: activeRecordsFile
+                refreshStatisticsTrackingCurrentRecord(
+                    context = appContext,
+                    request = statisticsRequest,
+                    recordIntervalMs = recordIntervalMs,
+                    expectedCurrentRecordsFile = refreshTarget
+                )
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                LoggerX.e(TAG, "[记录清理] 执行失败", tr = e)
+                _userMessage.value = appString(R.string.record_cleanup_toast_failed)
+            } finally {
+                _isCleaningRecords.value = false
             }
         }
     }
@@ -479,6 +544,40 @@ class MainViewModel : ViewModel() {
     }
 
     /**
+     * 生成记录清理结果提示文案。
+     *
+     * @param result 仓库层返回的清理结果。
+     * @return 返回用于首页 Toast 的简体中文提示。
+     */
+    private fun buildRecordCleanupMessage(result: RecordCleanupResult): String {
+        val failedCount = result.failedFiles.size
+        if (result.deletedCount == 0 && failedCount == 0) {
+            return appString(R.string.record_cleanup_toast_no_match)
+        }
+        if (result.deletedCount == 0) {
+            return appString(
+                R.string.record_cleanup_toast_all_failed,
+                failedCount
+            )
+        }
+        if (failedCount == 0) {
+            return appString(
+                R.string.record_cleanup_toast_success,
+                result.deletedCount,
+                result.deletedChargingCount,
+                result.deletedDischargingCount
+            )
+        }
+        return appString(
+            R.string.record_cleanup_toast_partial_failed,
+            result.deletedCount,
+            result.deletedChargingCount,
+            result.deletedDischargingCount,
+            failedCount
+        )
+    }
+
+    /**
      * 把首页预测原始结果映射为卡片展示数据。
      *
      * @param prediction 首页预测算法返回的原始结果。
@@ -676,7 +775,9 @@ class MainViewModel : ViewModel() {
                             )
                         _predictionDisplay.value = buildPredictionDisplay(_prediction.value)
                     }
-                    _userMessage.value = currentRecordFailureMessage
+                    currentRecordFailureMessage?.let { message ->
+                        _userMessage.value = message
+                    }
 
                     LoggerX.i(TAG, 
                         "[首页] 统计加载完成: generation=$generation currentRecord=${resolvedCurrentRecord?.name} pending=${nextPendingRecordsFile?.name}"

@@ -17,7 +17,7 @@ BatteryRecorder 是一个 Android 电池功率记录 App。
 - 采样优先走 JNI sysfs 读取；不可用时回退到 dumpsys/batteryproperties 方案
 - root 模式下主 `Server` 会额外派生独立的 `NotificationServer` 子进程，并通过本地 socket 转发实时通知
 - 历史数据支持图表查看、应用维度统计、场景维度统计、记录详情统计与续航预测
-- 应用启动阶段还负责首次文档引导与更新检查；更新检查当前支持“稳定版 / 预发布”两种通道；首页同时提供 Root/ADB 启动入口与日志导出
+- 应用启动阶段还负责首次文档引导与更新检查；更新检查当前支持“稳定版 / 预发布”两种通道；首页同时提供 Root/ADB 启动入口、记录清理与日志导出
 
 ## 构建约束
 
@@ -120,7 +120,11 @@ Sampler -> SysfsSampler / DumpsysSampler -> Monitor -> PowerRecordWriter -> CSV
 - 首页的“续航预测卡片”和“场景统计卡片”都定义在 `ui/components/home/PredictionCard.kt`
 - 首页统计刷新参数统一来自 `SettingsViewModel.statisticsSettings`，服务端采样间隔单独来自 `SettingsViewModel.recordIntervalMs`
 - 首页在服务重连后只在前台生命周期内补注册 `IRecordListener` 并刷新统计，避免返回首页时先清空卡片再重载的竞态
-- 首页支持 Root 启动卡片、ADB 引导、日志导出、关于弹窗、首次文档引导与启动更新检查
+- 首页 `TopAppBar` 菜单当前支持记录清理入口；配置弹窗与二次确认都由 `ui/dialog/home/RecordCleanupDialog.kt` 承载
+- 记录清理规则分为“每类最多保留 N 条”和“条件清理”；条件清理当前对已启用条件采用 AND 语义，即必须同时满足所有已启用条件才会删除记录
+- 记录清理直接由 `HistoryRepository.cleanupRecords(...)` 扫描物理记录文件并执行删除，不复用历史页分页列表状态
+- 条件清理当前只对可成功解析统计的记录生效；文件名非法或统计解析失败的记录会记日志并跳过，不会在 UI 中作为单独规则暴露
+- 首页支持 Root 启动卡片、ADB 引导、记录清理、日志导出、关于弹窗、首次文档引导与启动更新检查
 - 启动更新检查由 `BatteryRecorderApp` 直接触发；稳定版通道走 GitHub `releases/latest`，预发布通道走 `releases` 列表并取最新非 draft 发布，因此向下兼容稳定版
 - 更新弹窗由 `ui/dialog/home/UpdateDialog.kt` 渲染，版本信息会附带当前通道标识
 
@@ -293,6 +297,7 @@ app/src/main/java/yangfentuozi/batteryrecorder/
 │   │   │   ├── AboutDialog.kt
 │   │   │   ├── AdbGuideDialog.kt
 │   │   │   ├── DocsIntroDialog.kt
+│   │   │   ├── RecordCleanupDialog.kt
 │   │   │   └── UpdateDialog.kt
 │   │   └── settings/
 │   │       ├── WeightedAlgorithmDialog.kt
@@ -390,9 +395,11 @@ shared/src/main/
 | 导航路由                      | `app/.../ui/navigation/NavRoute.kt`                                                                |
 | 导航宿主与历史页共享 ViewModel      | `app/.../ui/navigation/BatteryRecorderNavHost.kt`                                                  |
 | 首页                        | `app/.../ui/screens/home/HomeScreen.kt`                                                            |
+| 首页 `TopAppBar`                 | `app/.../ui/components/home/BatteryRecorderTopAppBar.kt`                                            |
 | 首页当前记录卡片                  | `app/.../ui/components/home/CurrentRecordCard.kt`                                                  |
 | 首页 Root 启动卡片              | `app/.../ui/components/home/StartServerCard.kt`                                                    |
 | 首页汇总卡片                    | `app/.../ui/components/home/StatsCard.kt`                                                          |
+| 首页记录清理弹窗                  | `app/.../ui/dialog/home/RecordCleanupDialog.kt`                                                    |
 | 设置页                       | `app/.../ui/screens/settings/SettingsScreen.kt`                                                    |
 | 历史列表                      | `app/.../ui/screens/history/HistoryListScreen.kt`                                                  |
 | 记录详情页                     | `app/.../ui/screens/history/RecordDetailScreen.kt`                                                 |
@@ -453,6 +460,8 @@ shared/src/main/
 - `PredictionDetailViewModel.load()` 会先执行同步，再读取最近放电记录并聚合应用维度预测
 - 当前实现中，`HomeScreen` 会直接访问 `Service.service` 注册 `IRecordListener`；修改该链路时必须同时检查生命周期、重连补注册时机与监听释放
 - `HistoryRepository` 负责文件 I/O、解析、缓存和统计，不承载 Compose 展示逻辑
+- 首页记录清理入口由 `MainViewModel.cleanupRecords(...)` 驱动；它在清理完成后会刷新首页统计与当前记录展示
+- `HistoryRepository.cleanupRecords(...)` 当前只清理可成功解析统计的普通记录；条件清理不会删除文件名非法或统计解析失败的异常文件
 - 详情页图表状态统一收敛到 `RecordDetailChartUiState`
 - 图表本地展示偏好不写入业务配置
 - 应用图标请求只基于当前视口包名集合触发

@@ -45,6 +45,7 @@ import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.viewmodel.compose.viewModel
 import yangfentuozi.batteryrecorder.R
+import yangfentuozi.batteryrecorder.data.history.RecordCleanupRequest
 import yangfentuozi.batteryrecorder.ipc.Service
 import yangfentuozi.batteryrecorder.server.recorder.IRecordListener
 import yangfentuozi.batteryrecorder.shared.data.BatteryStatus
@@ -60,6 +61,8 @@ import yangfentuozi.batteryrecorder.ui.components.home.StatsCard
 import yangfentuozi.batteryrecorder.ui.dialog.home.AboutDialog
 import yangfentuozi.batteryrecorder.ui.dialog.home.AdbGuideDialog
 import yangfentuozi.batteryrecorder.ui.dialog.home.DonateDialog
+import yangfentuozi.batteryrecorder.ui.dialog.home.RecordCleanupConfirmDialog
+import yangfentuozi.batteryrecorder.ui.dialog.home.RecordCleanupDialog
 import yangfentuozi.batteryrecorder.ui.model.LiveRecordSample
 import yangfentuozi.batteryrecorder.ui.theme.AppShape
 import yangfentuozi.batteryrecorder.ui.viewmodel.MainViewModel
@@ -150,8 +153,12 @@ fun HomeScreen(
     val showStopDialog by viewModel.showStopDialog.collectAsState()
     val showAboutDialog by viewModel.showAboutDialog.collectAsState()
     val userMessage by viewModel.userMessage.collectAsState()
+    val isCleaningRecords by viewModel.isCleaningRecords.collectAsState()
     var showAdbGuideDialog by remember { mutableStateOf(false) }
     var showDonateDialog by remember { mutableStateOf(false) }
+    var showRecordCleanupDialog by remember { mutableStateOf(false) }
+    var cleanupDialogInitialRequest by remember { mutableStateOf<RecordCleanupRequest?>(null) }
+    var pendingRecordCleanupRequest by remember { mutableStateOf<RecordCleanupRequest?>(null) }
     val chargeSummary by viewModel.chargeSummary.collectAsState()
     val dischargeSummary by viewModel.dischargeSummary.collectAsState()
     val currentRecordUiState by viewModel.currentRecordUiState.collectAsState()
@@ -300,6 +307,10 @@ fun HomeScreen(
                 BatteryRecorderTopAppBar(
                     onSettingsClick = onNavigateToSettings,
                     onDonateClick = { showDonateDialog = true },
+                    onRecordCleanupClick = {
+                        cleanupDialogInitialRequest = null
+                        showRecordCleanupDialog = true
+                    },
                     onExportLogsClick = {
                         val fileName = buildString {
                             append("log_")
@@ -317,6 +328,7 @@ fun HomeScreen(
                             recordIntervalMs = recordIntervalMs
                         )
                     },
+                    recordCleanupEnabled = !isCleaningRecords,
                     showStopServer = serviceConnected
                 )
             }
@@ -464,6 +476,43 @@ fun HomeScreen(
     if (showDonateDialog) {
         DonateDialog(
             onDismiss = { showDonateDialog = false }
+        )
+    }
+
+    if (showRecordCleanupDialog) {
+        RecordCleanupDialog(
+            initialRequest = cleanupDialogInitialRequest,
+            onDismiss = {
+                showRecordCleanupDialog = false
+                cleanupDialogInitialRequest = null
+            },
+            onConfirm = { request ->
+                showRecordCleanupDialog = false
+                cleanupDialogInitialRequest = request
+                pendingRecordCleanupRequest = request
+            }
+        )
+    }
+
+    pendingRecordCleanupRequest?.let { request ->
+        RecordCleanupConfirmDialog(
+            request = request,
+            isCleaning = isCleaningRecords,
+            onDismiss = {
+                pendingRecordCleanupRequest = null
+                cleanupDialogInitialRequest = request
+                showRecordCleanupDialog = true
+            },
+            onConfirm = {
+                pendingRecordCleanupRequest = null
+                cleanupDialogInitialRequest = null
+                viewModel.cleanupRecords(
+                    context = context,
+                    request = request,
+                    statisticsRequest = statisticsSettings,
+                    recordIntervalMs = recordIntervalMs
+                )
+            }
         )
     }
 
