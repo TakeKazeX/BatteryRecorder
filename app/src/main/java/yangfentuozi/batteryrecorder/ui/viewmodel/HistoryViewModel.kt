@@ -770,7 +770,6 @@ class HistoryViewModel : ViewModel() {
         val detailToken = expectedDetailToken ?: detailLoadToken
         val computeToken = chartComputeToken + 1
         chartComputeToken = computeToken
-        val detailType = _recordDetail.value?.type
         val rawPoints = recordPoints
         val dualCellEnabled = dualCellEnabled
         val calibrationValue = calibrationValue
@@ -781,7 +780,6 @@ class HistoryViewModel : ViewModel() {
                 val chartUiState = withContext(Dispatchers.Default) {
                     // 第一步：把原始记录点换算成图表可直接消费的瓦特值模型。
                     val displayPoints = mapDisplayPoints(
-                        detailType = detailType,
                         rawPoints = rawPoints,
                         dualCellEnabled = dualCellEnabled,
                         calibrationValue = calibrationValue
@@ -866,25 +864,26 @@ class HistoryViewModel : ViewModel() {
         )
     }
 
+    /**
+     * 将原始记录点映射为详情图表消费的瓦特值点。
+     *
+     * @param rawPoints 从记录文件解析出的原始点序列
+     * @param dualCellEnabled 是否按双电芯功率口径换算
+     * @param calibrationValue 当前功率校准系数
+     * @return 返回保留真实功率符号的图表点；充电记录的负值不再在这里裁剪
+     */
     private fun mapDisplayPoints(
-        detailType: BatteryStatus?,
         rawPoints: List<ChartPoint>,
         dualCellEnabled: Boolean,
         calibrationValue: Int
     ): List<RecordDetailChartPoint> {
         // 详情页图表要求按时间有序；在这里统一排序，后续图表和趋势计算都不再重复关注文件顺序。
         val convertedPoints = rawPoints.sortedBy { it.timestamp }.map { point ->
-            val displayPowerW = computePowerW(
+            val rawPowerW = computePowerW(
                 rawPower = point.power,
                 dualCellEnabled = dualCellEnabled,
                 calibrationValue = calibrationValue
             )
-            // 充电记录理论上应显示正值；如果底层数据出现负值，这里直接裁成 0，避免把异常值带进坐标系。
-            val rawPowerW = if (detailType == BatteryStatus.Charging && displayPowerW < 0) {
-                0.0
-            } else {
-                displayPowerW
-            }
             RecordDetailChartPoint(
                 timestamp = point.timestamp,
                 rawPowerW = rawPowerW,
@@ -899,6 +898,13 @@ class HistoryViewModel : ViewModel() {
         return convertedPoints
     }
 
+    /**
+     * 计算详情图表的时间窗口状态。
+     *
+     * @param points 原始展示点
+     * @param trendPoints 趋势展示点
+     * @return 返回图表基础时间范围与全屏模式默认视口大小
+     */
     private fun computeViewportState(
         points: List<RecordDetailChartPoint>,
         trendPoints: List<RecordDetailChartPoint>

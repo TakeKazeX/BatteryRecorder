@@ -97,6 +97,11 @@ private const val APP_ICON_ALPHA = 0.55f
 private const val TEMP_EXPAND_STEP_TENTHS = 100.0    // 10℃
 private const val VOLTAGE_AXIS_MIN_UV = 2_800_000.0 // 2.8V
 private const val VOLTAGE_AXIS_MAX_UV = 5_000_000.0 // 5.0V
+// 双向轴的负半轴不跟随真实极值无限扩展，只在 -5W 与 -10W 两档之间切换。
+private const val BIDIRECTIONAL_NEGATIVE_AXIS_SMALL_ABS_W = 5.0
+private const val BIDIRECTIONAL_NEGATIVE_AXIS_LARGE_ABS_W = 10.0
+// 负半轴标签统一按 5W 步进，确保 -5W 始终可见。
+private const val BIDIRECTIONAL_NEGATIVE_AXIS_STEP_W = 5
 // 横屏全屏下记录详情通常会查看长时间段数据，双指平移稍微提速以减少来回拖动次数。
 private const val FULLSCREEN_TWO_FINGER_PAN_SPEED_MULTIPLIER = 2.0f
 
@@ -305,7 +310,7 @@ private data class PreparedChartState(
     val voltageMarkerPoints: List<RecordDetailChartPoint>,
     val powerAxisConfig: FixedPowerAxisConfig,
     val hasVisiblePowerCurve: Boolean,
-    val isNegativeMode: Boolean,
+    val powerAxisMode: FixedPowerAxisMode,
     val minPower: Double,
     val maxPower: Double,
     val minTemp: Double,
@@ -477,7 +482,7 @@ fun PowerCapacityChart(
     val voltageMarkerPoints = preparedState.voltageMarkerPoints
     val powerAxisConfig = preparedState.powerAxisConfig
     val hasVisiblePowerCurve = preparedState.hasVisiblePowerCurve
-    val isNegativeMode = preparedState.isNegativeMode
+    val powerAxisMode = preparedState.powerAxisMode
     val minPower = preparedState.minPower
     val maxPower = preparedState.maxPower
     val minTemp = preparedState.minTemp
@@ -535,12 +540,12 @@ fun PowerCapacityChart(
     }
     val powerValueSelector = remember(
         curveVisibility.powerCurveMode,
-        isNegativeMode,
+        powerAxisMode,
         minPower,
         maxPower
     ) {
         { point: RecordDetailChartPoint ->
-            selectPowerValueForChart(point, curveVisibility.powerCurveMode, isNegativeMode)
+            selectPowerValueForChart(point, curveVisibility.powerCurveMode, powerAxisMode)
                 .coerceIn(minPower, maxPower)
         }
     }
@@ -599,15 +604,16 @@ fun PowerCapacityChart(
                 drawFixedPowerGridLines(
                     coords,
                     gridColor,
+                    powerAxisMode,
                     powerAxisConfig.majorStepW,
                     powerAxisConfig.minorStepW
                 )
                 drawFixedPowerAxisLabels(
                     coords,
                     axisLabelColor,
+                    powerAxisMode,
                     powerAxisConfig.majorStepW,
-                    powerAxisConfig.minorStepW,
-                    if (isNegativeMode) -1 else 1
+                    powerAxisConfig.minorStepW
                 )
             }
             drawTimeAxisLabels(
@@ -999,15 +1005,16 @@ fun PowerCapacityChart(
                         drawFixedPowerGridLines(
                             coords,
                             gridColor,
+                            powerAxisMode,
                             powerAxisConfig.majorStepW,
                             powerAxisConfig.minorStepW
                         )
                         drawFixedPowerAxisLabels(
                             coords,
                             axisLabelColor,
+                            powerAxisMode,
                             powerAxisConfig.majorStepW,
-                            powerAxisConfig.minorStepW,
-                            if (isNegativeMode) -1 else 1
+                            powerAxisConfig.minorStepW
                         )
                     }
                     drawTimeAxisLabels(
@@ -1137,7 +1144,7 @@ fun PowerCapacityChart(
                         val label = String.format(
                             Locale.getDefault(),
                             "%.2f W",
-                            if (isNegativeMode) -peakPlotPowerW else peakPlotPowerW
+                            formatPowerValueForDisplay(peakPlotPowerW, powerAxisMode)
                         )
                         val labelPaint = createTextPaint(peakLineColor.toArgb(), 24f)
                         val labelWidth = labelPaint.measureText(label)
@@ -1651,26 +1658,35 @@ private fun prepareChartState(request: ChartPreparationRequest): ChartPreparatio
     } else {
         filteredPoints
     }
+    // 这里保留真实正负号统计轴范围；
+    // 是否翻转成“显示为正”由更下游的取值函数决定，避免轴判定和标签语义互相污染。
+    val observedMinPowerW = powerAxisPoints.minOfOrNull {
+        selectPowerValueForDisplay(it, request.curveVisibility.powerCurveMode)
+    } ?: 0.0
+    val observedMaxPowerW = powerAxisPoints.maxOfOrNull {
+        selectPowerValueForDisplay(it, request.curveVisibility.powerCurveMode)
+    } ?: 0.0
+    val observedNegativeAbsW = abs(observedMinPowerW.coerceAtMost(0.0))
     val maxObservedAbsW = when (request.fixedPowerAxisMode) {
-        FixedPowerAxisMode.PositiveOnly -> when (request.curveVisibility.powerCurveMode) {
-            PowerCurveMode.Fitted -> powerAxisPoints.maxOfOrNull { it.fittedPowerW } ?: 0.0
-            PowerCurveMode.Raw, PowerCurveMode.Hidden -> powerAxisPoints.maxOfOrNull { it.rawPowerW }
-                ?: 0.0
-        }
-
-        FixedPowerAxisMode.NegativeOnly -> when (request.curveVisibility.powerCurveMode) {
-            PowerCurveMode.Fitted -> abs(powerAxisPoints.minOfOrNull { it.fittedPowerW } ?: 0.0)
-            PowerCurveMode.Raw, PowerCurveMode.Hidden -> abs(powerAxisPoints.minOfOrNull { it.rawPowerW }
-                ?: 0.0)
-        }
+        FixedPowerAxisMode.PositiveOnly -> observedMaxPowerW.coerceAtLeast(0.0)
+        FixedPowerAxisMode.NegativeOnly -> observedNegativeAbsW
+        // 双向轴的负半轴已经独立封顶，不应再反向拉大正半轴刻度。
+        FixedPowerAxisMode.Bidirectional -> observedMaxPowerW.coerceAtLeast(0.0)
     }
-    val powerAxisConfig = computeFixedPowerAxisConfig(maxObservedAbsW, request.fixedPowerAxisMode)
-    val isNegativeMode = request.fixedPowerAxisMode == FixedPowerAxisMode.NegativeOnly
+    val powerAxisConfig = computeFixedPowerAxisConfig(
+        maxObservedAbsW = maxObservedAbsW,
+        observedNegativeAbsW = observedNegativeAbsW,
+        mode = request.fixedPowerAxisMode
+    )
     val hasVisiblePowerCurve = request.curveVisibility.powerCurveMode != PowerCurveMode.Hidden
     val minPower = powerAxisConfig.minValue
     val maxPower = powerAxisConfig.maxValue
     val powerValueSelector: (RecordDetailChartPoint) -> Double = { point ->
-        selectPowerValueForChart(point, request.curveVisibility.powerCurveMode, isNegativeMode)
+        selectPowerValueForChart(
+            point,
+            request.curveVisibility.powerCurveMode,
+            request.fixedPowerAxisMode
+        )
             .coerceIn(minPower, maxPower)
     }
     val (minTemp, maxTemp) = computeTempAxisRange(renderFilteredPoints)
@@ -1695,7 +1711,7 @@ private fun prepareChartState(request: ChartPreparationRequest): ChartPreparatio
                 label = String.format(
                     Locale.getDefault(),
                     "%.2f W",
-                    if (isNegativeMode) -peakPlotPowerW else peakPlotPowerW
+                    formatPowerValueForDisplay(peakPlotPowerW, request.fixedPowerAxisMode)
                 )
             )
         }
@@ -1940,7 +1956,7 @@ private fun prepareChartState(request: ChartPreparationRequest): ChartPreparatio
             voltageMarkerPoints = voltageMarkerPoints,
             powerAxisConfig = powerAxisConfig,
             hasVisiblePowerCurve = hasVisiblePowerCurve,
-            isNegativeMode = isNegativeMode,
+            powerAxisMode = request.fixedPowerAxisMode,
             minPower = minPower,
             maxPower = maxPower,
             minTemp = minTemp,
@@ -2252,6 +2268,7 @@ private fun DrawScope.drawVerticalGridLines(
 private fun DrawScope.drawFixedPowerGridLines(
     coords: ChartCoordinates,
     gridColor: Color,
+    powerAxisMode: FixedPowerAxisMode,
     majorStepW: Int,
     minorStepW: Int
 ) {
@@ -2265,13 +2282,26 @@ private fun DrawScope.drawFixedPowerGridLines(
     var value = minW
     while (value <= maxW) {
         val isMajor = value % major == 0
+        // 0W 是双向轴中最重要的参考基线，需要比普通主刻度更醒目。
+        val isBidirectionalZeroLine =
+            powerAxisMode == FixedPowerAxisMode.Bidirectional && value == 0
         val y = coords.powerToY(value.toDouble())
         drawLine(
-            color = gridColor.copy(alpha = if (isMajor) 0.35f else 0.18f),
+            color = gridColor.copy(
+                alpha = when {
+                    isBidirectionalZeroLine -> 0.68f
+                    isMajor -> 0.35f
+                    else -> 0.18f
+                }
+            ),
             start = Offset(coords.paddingLeft, y),
             end = Offset(coords.paddingLeft + coords.chartWidth, y),
-            strokeWidth = if (isMajor) 1.dp.toPx() else 0.8.dp.toPx(),
-            pathEffect = if (isMajor) null else dashEffect
+            strokeWidth = when {
+                isBidirectionalZeroLine -> 1.8.dp.toPx()
+                isMajor -> 1.dp.toPx()
+                else -> 0.8.dp.toPx()
+            },
+            pathEffect = if (isMajor || isBidirectionalZeroLine) null else dashEffect
         )
         value += minor
     }
@@ -2283,9 +2313,9 @@ private fun DrawScope.drawFixedPowerGridLines(
 private fun DrawScope.drawFixedPowerAxisLabels(
     coords: ChartCoordinates,
     labelColor: Color,
+    powerAxisMode: FixedPowerAxisMode,
     majorStepW: Int,
     minorStepW: Int,
-    labelSignMultiplier: Int,
 ) {
     val textPaint = createTextPaint(labelColor.toArgb(), 24f)
     val minW = coords.minPower.roundToInt()
@@ -2298,12 +2328,16 @@ private fun DrawScope.drawFixedPowerAxisLabels(
     // 仅绘制主刻度标签
     var value = minW
     while (value <= maxW) {
-        if (value % major == 0) {
+        // 双向轴负半轴只保留 -5W / -10W 两档标签，不让更多负刻度挤占左侧空间。
+        val shouldDrawBidirectionalNegativeLabel = powerAxisMode == FixedPowerAxisMode.Bidirectional &&
+            value < 0 &&
+            value % BIDIRECTIONAL_NEGATIVE_AXIS_STEP_W == 0
+        if (value % major == 0 || shouldDrawBidirectionalNegativeLabel) {
             val y = coords.powerToY(value.toDouble())
             val powerText = String.format(
                 Locale.getDefault(),
                 "%.0f W",
-                (value * labelSignMultiplier).toDouble()
+                formatPowerValueForDisplay(value.toDouble(), powerAxisMode)
             )
             val powerWidth = textPaint.measureText(powerText)
             val baselineY = (y - 4.dp.toPx()).coerceIn(topBaseline, bottomBaseline)
@@ -2813,11 +2847,12 @@ private data class FixedPowerAxisConfig(
 )
 
 /**
- * 固定功率轴模式：正值（充电）或负值（放电）
+ * 固定功率轴模式：仅正值、仅负值、或跨过 0W 的双向轴。
  */
 enum class FixedPowerAxisMode {
     PositiveOnly,
     NegativeOnly,
+    Bidirectional,
 }
 
 /** 温度轴范围：按数据自动扩展，20℃ 步进，无默认范围与硬限制。 */
@@ -2846,10 +2881,16 @@ private fun computeVoltageAxisRange(): Pair<Double, Double> {
 }
 
 /**
- * 根据最大功率值计算固定轴配置（自动选择合适的刻度范围）
+ * 根据当前轴模式与功率幅值计算固定轴配置。
+ *
+ * @param maxObservedAbsW 当前模式下用于确定正向轴上界的参考功率
+ * @param observedNegativeAbsW 当前可见负功率的最大绝对值
+ * @param mode 目标功率轴模式
+ * @return 返回与模式匹配的固定刻度范围；双向轴负半轴只显示 -5W 或 -10W/-5W 两档
  */
 private fun computeFixedPowerAxisConfig(
     maxObservedAbsW: Double,
+    observedNegativeAbsW: Double,
     mode: FixedPowerAxisMode
 ): FixedPowerAxisConfig {
     val axisMaxW = when {
@@ -2877,12 +2918,24 @@ private fun computeFixedPowerAxisConfig(
     }
 
     val minorStepW = when {
+        mode == FixedPowerAxisMode.Bidirectional -> BIDIRECTIONAL_NEGATIVE_AXIS_STEP_W
         axisMaxW <= 15 -> 1
         axisMaxW <= 60 -> 5
         else -> 10
     }
 
-    val minValue = 0.0
+    val minValue = if (mode == FixedPowerAxisMode.Bidirectional) {
+        // 双向轴负半轴只分两种展示：
+        // 1. 负值幅度不超过 5W，只显示到 -5W；
+        // 2. 超过 5W 后封顶到 -10W，避免负半轴继续侵占正向绘图区。
+        if (observedNegativeAbsW <= BIDIRECTIONAL_NEGATIVE_AXIS_SMALL_ABS_W) {
+            -BIDIRECTIONAL_NEGATIVE_AXIS_SMALL_ABS_W
+        } else {
+            -BIDIRECTIONAL_NEGATIVE_AXIS_LARGE_ABS_W
+        }
+    } else {
+        0.0
+    }
     val maxValue = axisMaxW.toDouble()
 
     return FixedPowerAxisConfig(
@@ -3067,17 +3120,36 @@ private fun DrawScope.drawVoltageExtremeMarkers(
 private fun selectPowerValueForChart(
     point: RecordDetailChartPoint,
     powerCurveMode: PowerCurveMode,
-    isNegativeMode: Boolean,
+    powerAxisMode: FixedPowerAxisMode,
 ): Double {
-    // 图表坐标轴不接受“向下无限负值”的另一套逻辑，因此负轴模式统一翻成正高度。
-    // 真正展示给用户的符号语义由 selectPowerValueForDisplay 负责保留。
     val powerValue = when (powerCurveMode) {
         PowerCurveMode.Raw -> point.rawPowerW
         PowerCurveMode.Fitted -> point.fittedPowerW
         PowerCurveMode.Hidden -> point.rawPowerW
     }
-    return if (isNegativeMode) {
-        (-powerValue).coerceAtLeast(0.0)
+    return when (powerAxisMode) {
+        FixedPowerAxisMode.PositiveOnly,
+        FixedPowerAxisMode.Bidirectional -> powerValue
+
+        // 仅负轴模式继续沿用“绘图前翻正高度”的旧逻辑，
+        // 这样无需重写整套放电坐标系与峰值布局。
+        FixedPowerAxisMode.NegativeOnly -> (-powerValue).coerceAtLeast(0.0)
+    }
+}
+
+/**
+ * 将图表内部功率值映射为用户可见的标签语义。
+ *
+ * @param powerValue 图表内部使用的功率值
+ * @param powerAxisMode 当前功率轴模式
+ * @return 返回用于轴标签与峰值文本的显示值；仅负轴模式会翻回真实负号
+ */
+private fun formatPowerValueForDisplay(
+    powerValue: Double,
+    powerAxisMode: FixedPowerAxisMode,
+): Double {
+    return if (powerAxisMode == FixedPowerAxisMode.NegativeOnly) {
+        -powerValue
     } else {
         powerValue
     }

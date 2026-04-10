@@ -97,6 +97,8 @@ private const val KEY_SHOW_CAPACITY_CURVE = "show_capacity_curve"
 private const val KEY_SHOW_TEMP_CURVE = "show_temp_curve"
 private const val KEY_SHOW_VOLTAGE_CURVE = "show_voltage_curve"
 private const val KEY_SHOW_APP_ICONS = "show_app_icons"
+// 充电刚开始阶段经常出现短暂反向抖动，不希望仅靠这段预热噪声就把整张图切到双向轴。
+private const val CHARGING_NEGATIVE_AXIS_DETECTION_IGNORE_PERCENT = 10
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -257,12 +259,24 @@ fun RecordDetailScreen(
             stringResource(R.string.history_record_type_discharging)
         }
 
-        val fixedPowerMode =
-            if (detailType == BatteryStatus.Discharging && !dischargeDisplayPositive) {
+        // 双向轴只根据“进入稳定阶段后的负值”触发：
+        // 前 10% 的点即使出现负功率，也继续按正轴语义处理。
+        val chargingNegativeAxisDetectionIgnoreCount =
+            ((chartUiState.points.size * CHARGING_NEGATIVE_AXIS_DETECTION_IGNORE_PERCENT) + 99) / 100
+        val chargingAxisDetectionPoints =
+            chartUiState.points.drop(chargingNegativeAxisDetectionIgnoreCount)
+        val hasNegativeChargingPower = detailType == BatteryStatus.Charging &&
+            chargingAxisDetectionPoints.any { it.rawPowerW < 0.0 }
+        // 放电页仍沿用原来的单负轴逻辑；
+        // 充电页则只在稳定阶段检测到负值后切到双向轴。
+        val fixedPowerMode = when {
+            detailType == BatteryStatus.Discharging && !dischargeDisplayPositive -> {
                 FixedPowerAxisMode.NegativeOnly
-            } else {
-                FixedPowerAxisMode.PositiveOnly
             }
+
+            hasNegativeChargingPower -> FixedPowerAxisMode.Bidirectional
+            else -> FixedPowerAxisMode.PositiveOnly
+        }
         val curveVisibility = RecordChartCurveVisibility(
             powerCurveMode = powerCurveMode,
             showCapacity = showCapacity,
