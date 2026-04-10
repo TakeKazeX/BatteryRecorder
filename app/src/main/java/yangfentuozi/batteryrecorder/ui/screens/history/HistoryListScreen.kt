@@ -60,6 +60,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import yangfentuozi.batteryrecorder.R
 import yangfentuozi.batteryrecorder.shared.data.BatteryStatus
 import yangfentuozi.batteryrecorder.shared.data.RecordsFile
+import yangfentuozi.batteryrecorder.shared.util.LoggerX
 import yangfentuozi.batteryrecorder.ui.components.global.SwipeRevealRow
 import yangfentuozi.batteryrecorder.ui.theme.AppShape
 import yangfentuozi.batteryrecorder.ui.viewmodel.HistoryViewModel
@@ -135,6 +136,10 @@ fun HistoryListScreen(
     val exportAllLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.CreateDocument("application/zip")
     ) { uri ->
+        LoggerX.i(
+            "HistoryListScreen",
+            "[导出] 批量导出 CreateDocument 回调: type=${batteryStatus.dataDirName} uri=$uri"
+        )
         if (uri != null) {
             viewModel.exportAllRecords(context, batteryStatus, uri)
         }
@@ -233,7 +238,12 @@ fun HistoryListScreen(
                     IconButton(
                         enabled = !isImportExporting,
                         onClick = {
-                            exportAllLauncher.launch(buildHistoryZipFileName(batteryStatus))
+                            val fileName = buildHistoryZipFileName(batteryStatus)
+                            LoggerX.i(
+                                "HistoryListScreen",
+                                "[导出] 点击批量导出: type=${batteryStatus.dataDirName} fileName=$fileName"
+                            )
+                            exportAllLauncher.launch(fileName)
                         }
                     ) {
                         Icon(

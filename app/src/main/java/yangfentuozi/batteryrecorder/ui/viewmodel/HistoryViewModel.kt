@@ -438,7 +438,17 @@ class HistoryViewModel : ViewModel() {
         type: BatteryStatus,
         destinationUri: Uri
     ) {
-        if (_isLoading.value || _isImportExporting.value) return
+        LoggerX.i(
+            TAG,
+            "[导出] 收到批量导出请求: type=${type.dataDirName} destination=$destinationUri isLoading=${_isLoading.value} isImportExporting=${_isImportExporting.value}"
+        )
+        if (_isImportExporting.value) {
+            LoggerX.w(
+                TAG,
+                "[导出] 批量导出被跳过: type=${type.dataDirName} reason=isImportExporting:${_isImportExporting.value}"
+            )
+            return
+        }
         val currentExportRecords = resolveCurrentExportRecords(type)
         viewModelScope.launch {
             _isImportExporting.value = true
@@ -447,13 +457,25 @@ class HistoryViewModel : ViewModel() {
                     val exportRecords = currentExportRecords ?: HistoryRepository
                         .listRecordFiles(context, type)
                         .map { file -> RecordsFile.fromFile(file) }
+                    LoggerX.i(
+                        TAG,
+                        "[导出] 开始批量导出记录: type=${type.dataDirName} count=${exportRecords.size} source=${if (currentExportRecords != null) "currentList" else "diskScan"} destination=$destinationUri"
+                    )
                     HistoryRepository.exportRecordsZip(context, exportRecords, destinationUri)
                 }
+                LoggerX.i(
+                    TAG,
+                    "[导出] 批量导出成功: type=${type.dataDirName} destination=$destinationUri"
+                )
                 _userMessage.value = appString(R.string.toast_export_success)
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
-                LoggerX.e(TAG, "[导出] 批量导出失败: ${type.dataDirName}", tr = e)
+                LoggerX.e(
+                    TAG,
+                    "[导出] 批量导出失败: ${type.dataDirName} destination=$destinationUri",
+                    tr = e
+                )
                 _userMessage.value = appString(R.string.toast_export_failed)
             } finally {
                 _isImportExporting.value = false

@@ -483,19 +483,33 @@ object HistoryRepository {
         recordsFiles: List<RecordsFile>,
         destinationUri: Uri
     ) {
+        LoggerX.i(
+            TAG,
+            "[历史] 开始导出记录压缩包: count=${recordsFiles.size} destination=$destinationUri"
+        )
         val outputStream = context.contentResolver.openOutputStream(destinationUri, "w")
             ?: throw IOException("Failed to open destination: $destinationUri")
+        LoggerX.d(TAG, "[历史] 导出记录压缩包输出流已打开: destination=$destinationUri")
 
         outputStream.use { rawOutput ->
             ZipOutputStream(rawOutput).use { zipOutput ->
+                LoggerX.d(TAG, "[历史] 导出记录压缩包 ZIP 已创建: destination=$destinationUri")
                 recordsFiles.forEach { recordsFile ->
                     val sourceFile = recordsFile.toFile(context)
                         ?: throw FileNotFoundException("Record file not found: ${recordsFile.name}")
+                    LoggerX.d(
+                        TAG,
+                        "[历史] 写入导出 ZIP 条目: file=${sourceFile.name} size=${sourceFile.length()} destination=$destinationUri"
+                    )
                     zipOutput.putNextEntry(ZipEntry(sourceFile.name))
                     sourceFile.inputStream().use { input ->
                         input.copyTo(zipOutput)
                     }
                     zipOutput.closeEntry()
+                    LoggerX.d(
+                        TAG,
+                        "[历史] 导出 ZIP 条目写入完成: file=${sourceFile.name} destination=$destinationUri"
+                    )
                 }
             }
         }
