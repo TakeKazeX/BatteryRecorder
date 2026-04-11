@@ -136,7 +136,7 @@ class HistoryViewModel : ViewModel() {
     private var latestListFile: File? = null
     private var loadedRecordCount = 0
     private var listDischargeDisplayPositive = SettingsConstants.dischargeDisplayPositive.def
-    private var currentListType: BatteryStatus? = null
+    private var currentListType: BatteryStatus = BatteryStatus.Unknown
     private var hasInitializedListContext = false
     private var listLoadToken: Long = 0L
     private var detailLoadToken: Long = 0L

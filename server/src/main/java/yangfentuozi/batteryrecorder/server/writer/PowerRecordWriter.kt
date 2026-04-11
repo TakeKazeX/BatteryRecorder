@@ -41,7 +41,7 @@ class PowerRecordWriter(
     private val dischargeDir = File(powerDir, "discharge")
 
     @Volatile
-    var lastStatus: BatteryStatus? = writerStatusData?.lastStatus
+    var lastStatus: BatteryStatus = writerStatusData?.lastStatus ?: BatteryStatus.Unknown
         private set
 
     val chargeDataWriter = ChargeDataWriter(chargeDir, writerStatusData?.chargeDataWriterStatusData)
@@ -344,7 +344,7 @@ class PowerRecordWriter(
 
     fun currWriterStatusAndClose(): WriterStatusData {
         return WriterStatusData(
-            lastStatus = lastStatus ?: BatteryStatus.Unknown,
+            lastStatus = lastStatus,
             chargeDataWriterStatusData = chargeDataWriter.currWriterStatusAndClose(),
             dischargeDataWriterStatusData = dischargeDataWriter.currWriterStatusAndClose())
     }
