@@ -294,17 +294,22 @@ class Server internal constructor() : IService.Stub() {
         return readEnd
     }
 
-    private fun stopServiceImmediately() {
+    private fun onStop() {
         monitor.stop()
 
         try {
             writer.flushBuffer()
         } catch (e: IOException) {
-            LoggerX.e(tag, "stopServiceImmediately: flushBuffer 失败", tr = e)
+            LoggerX.e(tag, "onStop: flushBuffer 失败", tr = e)
         }
         writer.close()
         bridge?.stop()
         serverSocket?.close()
+        try {
+            LoggerX.flushBlocking()
+        } catch (e: Exception) {
+            LoggerX.e(tag, "onStop: 刷新日志缓冲失败", tr = e, notWrite = true)
+        }
         Handlers.interruptAll()
     }
 
@@ -337,7 +342,7 @@ class Server internal constructor() : IService.Stub() {
         }
 
         Handlers.initMainThread()
-        Runtime.getRuntime().addShutdownHook(Thread { this.stopServiceImmediately() })
+        Runtime.getRuntime().addShutdownHook(Thread(::onStop))
         Thread.setDefaultUncaughtExceptionHandler { thread, throwable ->
             LoggerX.a(thread.name, "Server crashed", tr = throwable)
             LoggerX.writer?.close()
