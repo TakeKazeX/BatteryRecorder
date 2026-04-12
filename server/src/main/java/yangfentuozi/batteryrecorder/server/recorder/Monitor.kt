@@ -296,7 +296,7 @@ class Monitor(
     private fun onFocusedAppChanged(taskInfo: TaskInfo) {
         val componentName = taskInfo.topActivity ?: return
         val packageName = componentName.packageName
-        
+
         currForegroundApp = packageName
     }
 
