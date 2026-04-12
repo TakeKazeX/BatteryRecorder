@@ -28,15 +28,12 @@ if (ksFile.canRead()) {
 }
 
 val gitCommitCountInt = rootProject.extra["gitCommitCountInt"] as Int
-val baseVersionName = "1.4.6"
+val baseVersionName = "1.4.7"
 val versionNameSuffixProvider = providers.gradleProperty("versionNameSuffix")
     .orElse("-alpha$gitCommitCountInt")
 val finalVersionNameProvider = versionNameSuffixProvider.map { suffix ->
     baseVersionName + suffix
 }
-
-// pre-release更新位
-val prerelease: Int = 1
 
 android {
     namespace = "yangfentuozi.batteryrecorder"
